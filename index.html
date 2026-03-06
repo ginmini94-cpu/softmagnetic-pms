@@ -25,6 +25,9 @@
             padding-left: 0.75rem;
             margin-bottom: 1rem;
             margin-top: 1.5rem;
+            background-color: #f1f5f9;
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
         }
         .form-input {
             width: 100%;
@@ -35,6 +38,7 @@
             transition: border-color 0.2s;
         }
         .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
+        .form-input:invalid { border-color: #f87171; } /* 必填未填的提示樣式 */
         .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #475569; margin-bottom: 0.25rem; }
     </style>
 </head>
@@ -50,7 +54,7 @@
         const CLIENT_ID = '247871499678-q55hb2a2h95e1evafkthp54qhrrr1cdr.apps.googleusercontent.com';
         const SHEET_ID = '1t-oE-CkyhrFH30V2Hl3FPxQ49VwEteqF_w3VoEIvdV4';
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-        const PROJECT_STAGES = ['項目立項', 'Es', 'EVT', 'DVT', 'PVT', '項目總結'];
+        const PROJECT_STAGES = ['項目立項', 'ES', 'EVT', 'DVT', 'PVT', '項目總結'];
         // ============================================================================
 
         // --- 子組件：MZ-RD-04-91 粉材需求確認表 ---
@@ -69,42 +73,44 @@
                     <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">粉材需求確認表</h2>
                     <p className="text-center text-slate-500 mb-8 font-mono">NO: MZ-RD-04-91(A2)</p>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div><label className="form-label">需求单位</label><input name="dept" value={data.dept} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">需求人</label><input name="requester" value={data.requester} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">应用机种/客户</label><input name="appMachine" value={data.appMachine} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">需求日期</label><input type="date" name="reqDate" value={data.reqDate} onChange={handleChange} className="form-input" /></div>
-                        <div className="col-span-2"><label className="form-label">应用方向</label><input name="appDirection" value={data.appDirection} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                    <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div><label className="form-label">* 需求单位</label><input name="dept" value={data.dept} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 需求人</label><input name="requester" value={data.requester} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 应用机种/客户</label><input name="appMachine" value={data.appMachine} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 需求日期</label><input type="date" name="reqDate" value={data.reqDate} onChange={handleChange} className="form-input" required /></div>
+                            <div className="col-span-2"><label className="form-label">应用方向</label><input name="appDirection" value={data.appDirection} onChange={handleChange} className="form-input" /></div>
+                        </div>
 
-                    <div className="form-section-title">1、粉材特性需求 (* 为必填)</div>
-                    <div className="grid grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                        <div><label className="form-label">* μr</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" required/></div>
-                        <div><label className="form-label">* 饱和需求 Idc(A)</label><input name="idc" value={data.idc} onChange={handleChange} className="form-input" required/></div>
-                        <div><label className="form-label">Drop %</label><input name="drop" value={data.drop} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">H (Oe)</label><input name="h_oe" value={data.h_oe} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">耐压需求: 最高电压(V)</label><input name="maxV" value={data.maxV} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">最低阻抗(Ω)</label><input name="minOhm" value={data.minOhm} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">* 盐雾(h)</label><input name="saltSpray" value={data.saltSpray} onChange={handleChange} className="form-input" required/></div>
-                        <div><label className="form-label">* 材料成本(元/kg)</label><input name="cost" value={data.cost} onChange={handleChange} className="form-input" required/></div>
-                        <div><label className="form-label">* 耐温等级(℃)</label><input name="tempClass" value={data.tempClass} onChange={handleChange} className="form-input" required/></div>
-                        <div className="col-span-3"><label className="form-label">其他</label><input name="other" value={data.other} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                        <div className="form-section-title">1、粉材特性需求 (* 为必填)</div>
+                        <div className="grid grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <div><label className="form-label">* μr</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" required/></div>
+                            <div><label className="form-label">* 饱和需求 Idc(A)</label><input name="idc" value={data.idc} onChange={handleChange} className="form-input" required/></div>
+                            <div><label className="form-label">Drop %</label><input name="drop" value={data.drop} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">H (Oe)</label><input name="h_oe" value={data.h_oe} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">耐压需求: 最高电压(V)</label><input name="maxV" value={data.maxV} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">最低阻抗(Ω)</label><input name="minOhm" value={data.minOhm} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">* 盐雾(h)</label><input name="saltSpray" value={data.saltSpray} onChange={handleChange} className="form-input" required/></div>
+                            <div><label className="form-label">* 材料成本(元/kg)</label><input name="cost" value={data.cost} onChange={handleChange} className="form-input" required/></div>
+                            <div><label className="form-label">* 耐温等级(℃)</label><input name="tempClass" value={data.tempClass} onChange={handleChange} className="form-input" required/></div>
+                            <div className="col-span-3"><label className="form-label">其他</label><input name="other" value={data.other} onChange={handleChange} className="form-input" /></div>
+                        </div>
 
-                    <div className="form-section-title">2、信赖性测试需求</div>
-                    <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-24 mb-6" placeholder="请详细填写信赖性测试标准..."></textarea>
+                        <div className="form-section-title">2、信赖性测试需求</div>
+                        <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-24 mb-6" placeholder="请详细填写信赖性测试标准..."></textarea>
 
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div><label className="form-label">需求人签字</label><input name="signReq" value={data.signReq} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">确认人签字</label><input name="signConf" value={data.signConf} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div><label className="form-label">* 需求人签字</label><input name="signReq" value={data.signReq} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">确认人签字</label><input name="signConf" value={data.signConf} onChange={handleChange} className="form-input" /></div>
+                        </div>
 
-                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
-                        <button onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
-                        <button onClick={() => onSave(data)} disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                            {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
-                        </button>
-                    </div>
+                        <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+                            <button type="button" onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
+                            <button type="submit" disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             );
         }
@@ -132,72 +138,74 @@
                     <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">可行性评估报告</h2>
                     <p className="text-center text-slate-500 mb-8 font-mono">NO: MZ-RD-04-96(A1)</p>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div><label className="form-label">主导部门</label><input name="leadDept" value={data.leadDept} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">评估日期</label><input type="date" name="evalDate" value={data.evalDate} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">项目名称</label><input name="projName" value={data.projName} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">负责人</label><input name="leader" value={data.leader} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">应用机种</label><input name="appMachine" value={data.appMachine} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">顾客名称</label><input name="customer" value={data.customer} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                    <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div><label className="form-label">* 主导部门</label><input name="leadDept" value={data.leadDept} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 评估日期</label><input type="date" name="evalDate" value={data.evalDate} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 项目名称</label><input name="projName" value={data.projName} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 负责人</label><input name="leader" value={data.leader} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">应用机种</label><input name="appMachine" value={data.appMachine} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">顾客名称</label><input name="customer" value={data.customer} onChange={handleChange} className="form-input" /></div>
+                        </div>
 
-                    <div className="form-section-title">一、粉材特性规格（磁环）</div>
-                    <div className="grid grid-cols-4 gap-4 mb-6">
-                        <div><label className="form-label">μr</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">饱和20% H(Oe)</label><input name="h_20" value={data.h_20} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">饱和30% H(Oe)</label><input name="h_30" value={data.h_30} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">绝缘 MΩ</label><input name="ir1" value={data.ir1} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">绝缘 MΩ</label><input name="ir2" value={data.ir2} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">时间 (h)</label><input name="h_time" value={data.h_time} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">温度 (℃)</label><input name="temp" value={data.temp} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">成本 (元/kg)</label><input name="cost" value={data.cost} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                        <div className="form-section-title">一、粉材特性规格（磁环）</div>
+                        <div className="grid grid-cols-4 gap-4 mb-6">
+                            <div><label className="form-label">μr</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">饱和20% H(Oe)</label><input name="h_20" value={data.h_20} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">饱和30% H(Oe)</label><input name="h_30" value={data.h_30} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">绝缘 MΩ</label><input name="ir1" value={data.ir1} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">绝缘 MΩ</label><input name="ir2" value={data.ir2} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">时间 (h)</label><input name="h_time" value={data.h_time} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">温度 (℃)</label><input name="temp" value={data.temp} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">成本 (元/kg)</label><input name="cost" value={data.cost} onChange={handleChange} className="form-input" /></div>
+                        </div>
 
-                    <div className="form-section-title">二、材料需求（磁性粉末、胶水）</div>
-                    <table className="w-full text-sm text-left mb-6 border border-slate-200">
-                        <thead className="bg-slate-50"><tr><th className="p-2 border-b">材料类别</th><th className="p-2 border-b">已有材料</th><th className="p-2 border-b">新开发材料</th><th className="p-2 border-b">说明</th></tr></thead>
-                        <tbody>
-                            <tr>
-                                <td className="p-2 border-b font-medium">粉材</td>
-                                <td className="p-2 border-b"><input type="checkbox" name="mat_powder_old" checked={data.mat_powder_old} onChange={handleChange} /></td>
-                                <td className="p-2 border-b"><input type="checkbox" name="mat_powder_new" checked={data.mat_powder_new} onChange={handleChange} /></td>
-                                <td className="p-2 border-b"><input name="mat_powder_desc" value={data.mat_powder_desc} onChange={handleChange} className="form-input text-xs py-1" /></td>
-                            </tr>
-                            <tr>
-                                <td className="p-2 font-medium">胶水</td>
-                                <td className="p-2"><input type="checkbox" name="mat_glue_old" checked={data.mat_glue_old} onChange={handleChange} /></td>
-                                <td className="p-2"><input type="checkbox" name="mat_glue_new" checked={data.mat_glue_new} onChange={handleChange} /></td>
-                                <td className="p-2"><input name="mat_glue_desc" value={data.mat_glue_desc} onChange={handleChange} className="form-input text-xs py-1" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        <div className="form-section-title">二、材料需求（磁性粉末、胶水）</div>
+                        <table className="w-full text-sm text-left mb-6 border border-slate-200">
+                            <thead className="bg-slate-50"><tr><th className="p-2 border-b">材料类别</th><th className="p-2 border-b text-center">已有材料</th><th className="p-2 border-b text-center">新开发材料</th><th className="p-2 border-b">说明</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td className="p-2 border-b font-medium">粉材</td>
+                                    <td className="p-2 border-b text-center"><input type="checkbox" name="mat_powder_old" checked={data.mat_powder_old} onChange={handleChange} className="w-4 h-4" /></td>
+                                    <td className="p-2 border-b text-center"><input type="checkbox" name="mat_powder_new" checked={data.mat_powder_new} onChange={handleChange} className="w-4 h-4" /></td>
+                                    <td className="p-2 border-b"><input name="mat_powder_desc" value={data.mat_powder_desc} onChange={handleChange} className="form-input text-xs py-1" /></td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-medium">胶水</td>
+                                    <td className="p-2 text-center"><input type="checkbox" name="mat_glue_old" checked={data.mat_glue_old} onChange={handleChange} className="w-4 h-4" /></td>
+                                    <td className="p-2 text-center"><input type="checkbox" name="mat_glue_new" checked={data.mat_glue_new} onChange={handleChange} className="w-4 h-4" /></td>
+                                    <td className="p-2"><input name="mat_glue_desc" value={data.mat_glue_desc} onChange={handleChange} className="form-input text-xs py-1" /></td>
+                                </tr>
+                            </tbody>
+                        </table>
 
-                    <div className="form-section-title">三、产品生产工艺 & 四、信赖性测试标准</div>
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <textarea name="process" value={data.process} onChange={handleChange} className="form-input h-20" placeholder="产品生产工艺说明..."></textarea>
-                        <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-20" placeholder="信赖性测试标准说明..."></textarea>
-                    </div>
+                        <div className="form-section-title">三、产品生产工艺 & 四、信赖性测试标准</div>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <textarea name="process" value={data.process} onChange={handleChange} className="form-input h-20" placeholder="产品生产工艺说明..."></textarea>
+                            <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-20" placeholder="信赖性测试标准说明..."></textarea>
+                        </div>
 
-                    <div className="form-section-title">五、新产品开发进度评估 (目标天数)</div>
-                    <div className="grid grid-cols-4 gap-4 mb-6">
-                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">ES</span><input type="number" name="es_days" value={data.es_days} onChange={handleChange} className="form-input" /> 天</div>
-                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">EVT</span><input type="number" name="evt_days" value={data.evt_days} onChange={handleChange} className="form-input" /> 天</div>
-                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">DVT</span><input type="number" name="dvt_days" value={data.dvt_days} onChange={handleChange} className="form-input" /> 天</div>
-                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">PVT</span><input type="number" name="pvt_days" value={data.pvt_days} onChange={handleChange} className="form-input" /> 天</div>
-                    </div>
+                        <div className="form-section-title">五、新产品开发进度评估 (目标天数) *</div>
+                        <div className="grid grid-cols-4 gap-4 mb-6">
+                            <div className="flex items-center gap-2"><span className="font-bold text-slate-600">ES</span><input type="number" name="es_days" value={data.es_days} onChange={handleChange} className="form-input" required min="1"/> 天</div>
+                            <div className="flex items-center gap-2"><span className="font-bold text-slate-600">EVT</span><input type="number" name="evt_days" value={data.evt_days} onChange={handleChange} className="form-input" required min="1"/> 天</div>
+                            <div className="flex items-center gap-2"><span className="font-bold text-slate-600">DVT</span><input type="number" name="dvt_days" value={data.dvt_days} onChange={handleChange} className="form-input" required min="1"/> 天</div>
+                            <div className="flex items-center gap-2"><span className="font-bold text-slate-600">PVT</span><input type="number" name="pvt_days" value={data.pvt_days} onChange={handleChange} className="form-input" required min="1"/> 天</div>
+                        </div>
 
-                    <div className="form-section-title">六、市场概况 & 七、结论</div>
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <textarea name="market" value={data.market} onChange={handleChange} className="form-input h-20" placeholder="企业性质、生产经营状况等..."></textarea>
-                        <textarea name="conclusion" value={data.conclusion} onChange={handleChange} className="form-input h-20" placeholder="评估结论..."></textarea>
-                    </div>
+                        <div className="form-section-title">六、市场概况 & 七、结论</div>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <textarea name="market" value={data.market} onChange={handleChange} className="form-input h-20" placeholder="企业性质、生产经营状况等..."></textarea>
+                            <textarea name="conclusion" value={data.conclusion} onChange={handleChange} className="form-input h-20" placeholder="评估结论..." required></textarea>
+                        </div>
 
-                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
-                        <button onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
-                        <button onClick={() => onSave(data)} disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                            {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
-                        </button>
-                    </div>
+                        <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+                            <button type="button" onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
+                            <button type="submit" disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             );
         }
@@ -218,49 +226,51 @@
                     <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">粉材初版规格书</h2>
                     <p className="text-center text-slate-500 mb-8 font-mono">NO: MZ-RD-04-95(A1)</p>
 
-                    <div className="form-section-title">一、磁环尺寸规格</div>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div><label className="form-label">粉重 (g)</label><input name="weight" value={data.weight} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">磁环外径 (mm)</label><input name="outDia" value={data.outDia} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">磁环内径 (mm)</label><input name="inDia" value={data.inDia} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                    <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
+                        <div className="form-section-title">一、磁环尺寸规格</div>
+                        <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div><label className="form-label">* 粉重 (g)</label><input name="weight" value={data.weight} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 磁环外径 (mm)</label><input name="outDia" value={data.outDia} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 磁环内径 (mm)</label><input name="inDia" value={data.inDia} onChange={handleChange} className="form-input" required /></div>
+                        </div>
 
-                    <div className="form-section-title">二、磁环制作工艺</div>
-                    <div className="grid grid-cols-5 gap-4 mb-6">
-                        <div><label className="form-label">压制工艺</label><input name="processType" value={data.processType} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">压力 (T)</label><input name="pressure" value={data.pressure} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">模具温度 (℃)</label><input name="moldTemp" value={data.moldTemp} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">预热时间 (sec)</label><input name="preheatTime" value={data.preheatTime} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">保压时间 (sec)</label><input name="holdTime" value={data.holdTime} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                        <div className="form-section-title">二、磁环制作工艺</div>
+                        <div className="grid grid-cols-5 gap-4 mb-6">
+                            <div><label className="form-label">压制工艺</label><input name="processType" value={data.processType} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">压力 (T)</label><input name="pressure" value={data.pressure} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">模具温度 (℃)</label><input name="moldTemp" value={data.moldTemp} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">预热时间 (sec)</label><input name="preheatTime" value={data.preheatTime} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">保压时间 (sec)</label><input name="holdTime" value={data.holdTime} onChange={handleChange} className="form-input" /></div>
+                        </div>
 
-                    <div className="form-section-title">三、磁环特性规格</div>
-                    <div className="grid grid-cols-4 gap-4 mb-6">
-                        <div><label className="form-label">导磁率 (μ)</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">30A Drop%</label><input name="drop30a" value={data.drop30a} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">饱和20% H(Oe)</label><input name="h_20" value={data.h_20} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">饱和30% H(Oe)</label><input name="h_30" value={data.h_30} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">IR-50V (MΩ)</label><input name="ir50" value={data.ir50} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">IR-100V (MΩ)</label><input name="ir100" value={data.ir100} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">强度 (N/Mpa)</label><input name="strength" value={data.strength} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">盐雾等级</label><input name="salt" value={data.salt} onChange={handleChange} className="form-input" placeholder="35℃; NaCl=5%..." /></div>
-                    </div>
+                        <div className="form-section-title">三、磁环特性规格</div>
+                        <div className="grid grid-cols-4 gap-4 mb-6">
+                            <div><label className="form-label">* 导磁率 (μ)</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">30A Drop%</label><input name="drop30a" value={data.drop30a} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">饱和20% H(Oe)</label><input name="h_20" value={data.h_20} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">饱和30% H(Oe)</label><input name="h_30" value={data.h_30} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">IR-50V (MΩ)</label><input name="ir50" value={data.ir50} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">IR-100V (MΩ)</label><input name="ir100" value={data.ir100} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">强度 (N/Mpa)</label><input name="strength" value={data.strength} onChange={handleChange} className="form-input" /></div>
+                            <div><label className="form-label">盐雾等级</label><input name="salt" value={data.salt} onChange={handleChange} className="form-input" placeholder="35℃; NaCl=5%..." /></div>
+                        </div>
 
-                    <div className="form-section-title">四、信赖性测试标准 & 发布资讯</div>
-                    <div className="grid grid-cols-1 gap-4 mb-8">
-                        <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-20" placeholder="信赖性测试标准..."></textarea>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div><label className="form-label">发布人</label><input name="publisher" value={data.publisher} onChange={handleChange} className="form-input" /></div>
-                        <div><label className="form-label">发布日期</label><input type="date" name="publishDate" value={data.publishDate} onChange={handleChange} className="form-input" /></div>
-                    </div>
+                        <div className="form-section-title">四、信赖性测试标准 & 发布资讯</div>
+                        <div className="grid grid-cols-1 gap-4 mb-8">
+                            <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-20" placeholder="信赖性测试标准..."></textarea>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div><label className="form-label">* 发布人</label><input name="publisher" value={data.publisher} onChange={handleChange} className="form-input" required /></div>
+                            <div><label className="form-label">* 发布日期</label><input type="date" name="publishDate" value={data.publishDate} onChange={handleChange} className="form-input" required /></div>
+                        </div>
 
-                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
-                        <button onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
-                        <button onClick={() => onSave(data)} disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                            {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
-                        </button>
-                    </div>
+                        <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+                            <button type="button" onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
+                            <button type="submit" disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             );
         }
@@ -330,10 +340,10 @@
                     
                     if (data.values && data.values.length > 1) {
                         const formatted = data.values.slice(1).map((row, index) => {
+                            // 🌟 舊資料自動相容邏輯：確保舊的「評估」或「新申請」直接對應到「項目立項」
                             let currentStatus = row[5] || PROJECT_STAGES[0];
-                            // 🌟 新增這裡：自動將舊版的狀態轉換為新版的第一階段，讓 Check List 能順利顯示
-                            if (currentStatus === '評估' || currentStatus === '新申請') {
-                                currentStatus = '項目立項';
+                            if (currentStatus === '評估' || currentStatus === '新申請' || currentStatus === 'Es') {
+                                currentStatus = currentStatus === 'Es' ? 'ES' : '項目立項';
                             }
                             
                             return {
@@ -386,7 +396,7 @@
                         body: JSON.stringify(body)
                     });
                     setActiveProject({ ...project, status: newStage });
-                    showMsg(`專案已成功推進至：${newStage}`);
+                    showMsg(`專案已成功立項並推進至：${newStage}`);
                     fetchProjects(); 
                 } catch (err) { showMsg('狀態更新失敗：' + err.message); } 
                 finally { setIsLoading(false); }
@@ -549,7 +559,10 @@
                                                     <td className="p-4 font-semibold text-slate-800">{p.name}</td>
                                                     <td className="p-4 text-slate-600">{p.leader}</td>
                                                     <td className="p-4">
-                                                        <span className="px-2 py-1 border rounded text-xs font-medium bg-blue-100 text-blue-700 border-blue-200">{p.status}</span>
+                                                        <span className={`px-2 py-1 border rounded text-xs font-medium 
+                                                            ${p.status === '項目立項' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
+                                                            {p.status === '項目立項' ? '待立項審查' : p.status}
+                                                        </span>
                                                     </td>
                                                     <td className="p-4 text-right">
                                                         <button onClick={() => { setActiveProject(p); setView('detail'); setDetailMode('overview'); }} className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded font-medium">
@@ -589,7 +602,7 @@
                             {view === 'detail' && activeProject && (() => {
                                 const currentStageIndex = PROJECT_STAGES.indexOf(activeProject.status);
                                 const isFinished = currentStageIndex === PROJECT_STAGES.length - 1;
-                                const isInitiation = currentStageIndex === 0;
+                                const isInitiation = currentStageIndex === 0; // 0 = '項目立項'
                                 
                                 const projForms = filledForms[activeProject.id] || {};
                                 const has91 = !!projForms.form91;
@@ -614,9 +627,15 @@
                                                     <span><i className="fa-regular fa-user mr-1"></i> {activeProject.leader}</span>
                                                 </div>
                                             </div>
-                                            <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-bold border border-blue-200">
-                                                {isFinished ? <><i className="fa-solid fa-check-double mr-2"></i>已結案</> : <><i className="fa-solid fa-spinner fa-spin-pulse mr-2"></i>進行中：{activeProject.status}</>}
-                                            </span>
+                                            {isInitiation ? (
+                                                <span className="px-4 py-2 bg-amber-100 text-amber-700 rounded-full font-bold border border-amber-200 flex items-center">
+                                                    <i className="fa-solid fa-hourglass-half mr-2"></i>待立項審查
+                                                </span>
+                                            ) : (
+                                                <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-bold border border-blue-200">
+                                                    {isFinished ? <><i className="fa-solid fa-check-double mr-2"></i>已結案</> : <><i className="fa-solid fa-spinner fa-spin-pulse mr-2"></i>進行中：{activeProject.status}</>}
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="mt-10 mb-8 relative">
@@ -635,16 +654,17 @@
                                             </div>
                                         </div>
 
+                                        {/* 嚴格立項守門員 Check List */}
                                         {isInitiation && (
-                                            <div className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-list-check text-blue-600"></i> 階段任務：立項文件 Check List</h3>
-                                                <p className="text-sm text-slate-500 mb-4">完成下方表單後，系統將自動生成檔案並上傳至您的 Google Drive。</p>
+                                            <div className="mt-8 bg-slate-50 p-6 rounded-xl border-2 border-blue-100">
+                                                <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2"><i className="fa-solid fa-list-check text-blue-600"></i> 階段任務：專案立項審查</h3>
+                                                <p className="text-sm text-slate-500 mb-5 border-b border-slate-200 pb-4">請依序完成以下三份核心文件的填寫與上傳。三份文件皆完成後，方可解鎖「批准立項」按鈕，正式啟動專案。</p>
                                                 
                                                 <ul className="space-y-3">
                                                     <li className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
                                                         <div className="flex items-center gap-3">
                                                             {has91 ? <i className="fa-solid fa-square-check text-green-500 text-xl"></i> : <i className="fa-regular fa-square text-slate-300 text-xl"></i>}
-                                                            <span className={`font-medium ${has91 ? 'text-slate-500 line-through' : 'text-slate-700'}`}>MZ-RD-04-91 粉材需求确认表</span>
+                                                            <span className={`font-medium ${has91 ? 'text-slate-500' : 'text-slate-700'}`}>1. MZ-RD-04-91 粉材需求确认表</span>
                                                         </div>
                                                         <button onClick={() => setDetailMode('form91')} className="px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded border border-blue-200 transition text-sm">
                                                             {has91 ? '重新編輯' : '點擊填寫'}
@@ -653,7 +673,7 @@
                                                     <li className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
                                                         <div className="flex items-center gap-3">
                                                             {has96 ? <i className="fa-solid fa-square-check text-green-500 text-xl"></i> : <i className="fa-regular fa-square text-slate-300 text-xl"></i>}
-                                                            <span className={`font-medium ${has96 ? 'text-slate-500 line-through' : 'text-slate-700'}`}>MZ-RD-04-96 可行性评估报告</span>
+                                                            <span className={`font-medium ${has96 ? 'text-slate-500' : 'text-slate-700'}`}>2. MZ-RD-04-96 可行性评估报告</span>
                                                         </div>
                                                         <button onClick={() => setDetailMode('form96')} className="px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded border border-blue-200 transition text-sm">
                                                             {has96 ? '重新編輯' : '點擊填寫'}
@@ -662,7 +682,7 @@
                                                     <li className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
                                                         <div className="flex items-center gap-3">
                                                             {has95 ? <i className="fa-solid fa-square-check text-green-500 text-xl"></i> : <i className="fa-regular fa-square text-slate-300 text-xl"></i>}
-                                                            <span className={`font-medium ${has95 ? 'text-slate-500 line-through' : 'text-slate-700'}`}>MZ-RD-04-95 粉材初版规格书</span>
+                                                            <span className={`font-medium ${has95 ? 'text-slate-500' : 'text-slate-700'}`}>3. MZ-RD-04-95 粉材初版规格书</span>
                                                         </div>
                                                         <button onClick={() => setDetailMode('form95')} className="px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded border border-blue-200 transition text-sm">
                                                             {has95 ? '重新編輯' : '點擊填寫'}
@@ -677,16 +697,16 @@
                                                 <button 
                                                     onClick={() => handleUpdateStage(activeProject, PROJECT_STAGES[currentStageIndex + 1])}
                                                     disabled={isLoading || (isInitiation && !canAdvanceInitiation)}
-                                                    className={`px-8 py-3 rounded-full shadow-lg transition-all font-medium flex items-center gap-2
+                                                    className={`px-8 py-3 rounded-full shadow-lg transition-all font-bold flex items-center gap-2 text-lg
                                                         ${isLoading || (isInitiation && !canAdvanceInitiation) 
                                                             ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                                                            : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'}`}
+                                                            : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'}`}
                                                 >
-                                                    推進至下一個階段：{PROJECT_STAGES[currentStageIndex + 1]} <i className="fa-solid fa-arrow-right"></i>
+                                                    {isInitiation ? <><i className="fa-solid fa-check-to-slot"></i> 批准立項 (進入 ES 階段)</> : <><i className="fa-solid fa-arrow-right"></i> 推進至下一個階段：{PROJECT_STAGES[currentStageIndex + 1]}</>}
                                                 </button>
                                             )}
                                             {isInitiation && !canAdvanceInitiation && (
-                                                <p className="text-red-500 text-xs mt-3"><i className="fa-solid fa-circle-exclamation"></i> 請先完成上方所有 Check List 表單並上傳至雲端，方可解鎖推進按鈕。</p>
+                                                <p className="text-red-500 text-sm mt-3 font-medium bg-red-50 px-4 py-2 rounded-lg border border-red-100"><i className="fa-solid fa-lock"></i> 必須完成上方所有 Check List 表單，方可解鎖立項按鈕。</p>
                                             )}
                                         </div>
                                     </div>
