@@ -329,15 +329,23 @@
                     if (data.error) throw new Error(data.error.message);
                     
                     if (data.values && data.values.length > 1) {
-                        const formatted = data.values.slice(1).map((row, index) => ({
-                            rowIndex: index + 2,
-                            id: row[0] || '無編號',
-                            name: row[1] || '未命名',
-                            requester: row[2] || '',
-                            leader: row[3] || '待指派',
-                            market: row[4] || '',
-                            status: row[5] || PROJECT_STAGES[0]
-                        }));
+                        const formatted = data.values.slice(1).map((row, index) => {
+                            let currentStatus = row[5] || PROJECT_STAGES[0];
+                            // 🌟 新增這裡：自動將舊版的狀態轉換為新版的第一階段，讓 Check List 能順利顯示
+                            if (currentStatus === '評估' || currentStatus === '新申請') {
+                                currentStatus = '項目立項';
+                            }
+                            
+                            return {
+                                rowIndex: index + 2,
+                                id: row[0] || '無編號',
+                                name: row[1] || '未命名',
+                                requester: row[2] || '',
+                                leader: row[3] || '待指派',
+                                market: row[4] || '',
+                                status: currentStatus
+                            };
+                        });
                         setProjects(formatted.reverse());
                     } else {
                         setProjects([]);
