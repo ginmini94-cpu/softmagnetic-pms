@@ -14,9 +14,28 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        /* 隱藏滾動條但保留滾動功能 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .form-section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1e293b;
+            border-left: 4px solid #3b82f6;
+            padding-left: 0.75rem;
+            margin-bottom: 1rem;
+            margin-top: 1.5rem;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.375rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #475569; margin-bottom: 0.25rem; }
     </style>
 </head>
 <body>
@@ -26,28 +45,249 @@
         const { useState, useEffect, useCallback } = React;
 
         // ============================================================================
-        // 🔑 您的專屬 API 設定
+        // 🔑 API 設定
         // ============================================================================
         const CLIENT_ID = '247871499678-q55hb2a2h95e1evafkthp54qhrrr1cdr.apps.googleusercontent.com';
         const SHEET_ID = '1t-oE-CkyhrFH30V2Hl3FPxQ49VwEteqF_w3VoEIvdV4';
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-        
-        // 定義專案開發的標準階段
         const PROJECT_STAGES = ['項目立項', 'Es', 'EVT', 'DVT', 'PVT', '項目總結'];
         // ============================================================================
+
+        // --- 子組件：MZ-RD-04-91 粉材需求確認表 ---
+        function Form91({ project, initialData, onSave, onCancel, isLoading }) {
+            const [data, setData] = useState(initialData || {
+                dept: '', requester: '', appMachine: '', reqDate: '', appDirection: '',
+                mu: '', idc: '', drop: '', h_oe: '', maxV: '', minOhm: '',
+                saltSpray: '', cost: '', tempClass: '', other: '',
+                reliability: '', signReq: '', signConf: ''
+            });
+
+            const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.value });
+
+            return (
+                <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">粉材需求確認表</h2>
+                    <p className="text-center text-slate-500 mb-8 font-mono">NO: MZ-RD-04-91(A2)</p>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div><label className="form-label">需求单位</label><input name="dept" value={data.dept} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">需求人</label><input name="requester" value={data.requester} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">应用机种/客户</label><input name="appMachine" value={data.appMachine} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">需求日期</label><input type="date" name="reqDate" value={data.reqDate} onChange={handleChange} className="form-input" /></div>
+                        <div className="col-span-2"><label className="form-label">应用方向</label><input name="appDirection" value={data.appDirection} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="form-section-title">1、粉材特性需求 (* 为必填)</div>
+                    <div className="grid grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                        <div><label className="form-label">* μr</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" required/></div>
+                        <div><label className="form-label">* 饱和需求 Idc(A)</label><input name="idc" value={data.idc} onChange={handleChange} className="form-input" required/></div>
+                        <div><label className="form-label">Drop %</label><input name="drop" value={data.drop} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">H (Oe)</label><input name="h_oe" value={data.h_oe} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">耐压需求: 最高电压(V)</label><input name="maxV" value={data.maxV} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">最低阻抗(Ω)</label><input name="minOhm" value={data.minOhm} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">* 盐雾(h)</label><input name="saltSpray" value={data.saltSpray} onChange={handleChange} className="form-input" required/></div>
+                        <div><label className="form-label">* 材料成本(元/kg)</label><input name="cost" value={data.cost} onChange={handleChange} className="form-input" required/></div>
+                        <div><label className="form-label">* 耐温等级(℃)</label><input name="tempClass" value={data.tempClass} onChange={handleChange} className="form-input" required/></div>
+                        <div className="col-span-3"><label className="form-label">其他</label><input name="other" value={data.other} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="form-section-title">2、信赖性测试需求</div>
+                    <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-24 mb-6" placeholder="请详细填写信赖性测试标准..."></textarea>
+
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div><label className="form-label">需求人签字</label><input name="signReq" value={data.signReq} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">确认人签字</label><input name="signConf" value={data.signConf} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+                        <button onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
+                        <button onClick={() => onSave(data)} disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                            {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 子組件：MZ-RD-04-96 可行性评估报告 ---
+        function Form96({ project, initialData, onSave, onCancel, isLoading }) {
+            const [data, setData] = useState(initialData || {
+                leadDept: '', evalDate: '', projName: project.name || '', leader: project.leader || '',
+                appMachine: '', customer: '',
+                mu: '', h_20: '', h_30: '', ir1: '', ir2: '', h_time: '', temp: '', cost: '',
+                mat_powder_old: false, mat_powder_new: false, mat_powder_desc: '',
+                mat_glue_old: false, mat_glue_new: false, mat_glue_desc: '',
+                process: '', reliability: '',
+                es_days: '', evt_days: '', dvt_days: '', pvt_days: '',
+                market: '', conclusion: ''
+            });
+
+            const handleChange = (e) => {
+                const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                setData({ ...data, [e.target.name]: value });
+            };
+
+            return (
+                <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">可行性评估报告</h2>
+                    <p className="text-center text-slate-500 mb-8 font-mono">NO: MZ-RD-04-96(A1)</p>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div><label className="form-label">主导部门</label><input name="leadDept" value={data.leadDept} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">评估日期</label><input type="date" name="evalDate" value={data.evalDate} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">项目名称</label><input name="projName" value={data.projName} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">负责人</label><input name="leader" value={data.leader} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">应用机种</label><input name="appMachine" value={data.appMachine} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">顾客名称</label><input name="customer" value={data.customer} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="form-section-title">一、粉材特性规格（磁环）</div>
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                        <div><label className="form-label">μr</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">饱和20% H(Oe)</label><input name="h_20" value={data.h_20} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">饱和30% H(Oe)</label><input name="h_30" value={data.h_30} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">绝缘 MΩ</label><input name="ir1" value={data.ir1} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">绝缘 MΩ</label><input name="ir2" value={data.ir2} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">时间 (h)</label><input name="h_time" value={data.h_time} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">温度 (℃)</label><input name="temp" value={data.temp} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">成本 (元/kg)</label><input name="cost" value={data.cost} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="form-section-title">二、材料需求（磁性粉末、胶水）</div>
+                    <table className="w-full text-sm text-left mb-6 border border-slate-200">
+                        <thead className="bg-slate-50"><tr><th className="p-2 border-b">材料类别</th><th className="p-2 border-b">已有材料</th><th className="p-2 border-b">新开发材料</th><th className="p-2 border-b">说明</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td className="p-2 border-b font-medium">粉材</td>
+                                <td className="p-2 border-b"><input type="checkbox" name="mat_powder_old" checked={data.mat_powder_old} onChange={handleChange} /></td>
+                                <td className="p-2 border-b"><input type="checkbox" name="mat_powder_new" checked={data.mat_powder_new} onChange={handleChange} /></td>
+                                <td className="p-2 border-b"><input name="mat_powder_desc" value={data.mat_powder_desc} onChange={handleChange} className="form-input text-xs py-1" /></td>
+                            </tr>
+                            <tr>
+                                <td className="p-2 font-medium">胶水</td>
+                                <td className="p-2"><input type="checkbox" name="mat_glue_old" checked={data.mat_glue_old} onChange={handleChange} /></td>
+                                <td className="p-2"><input type="checkbox" name="mat_glue_new" checked={data.mat_glue_new} onChange={handleChange} /></td>
+                                <td className="p-2"><input name="mat_glue_desc" value={data.mat_glue_desc} onChange={handleChange} className="form-input text-xs py-1" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div className="form-section-title">三、产品生产工艺 & 四、信赖性测试标准</div>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        <textarea name="process" value={data.process} onChange={handleChange} className="form-input h-20" placeholder="产品生产工艺说明..."></textarea>
+                        <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-20" placeholder="信赖性测试标准说明..."></textarea>
+                    </div>
+
+                    <div className="form-section-title">五、新产品开发进度评估 (目标天数)</div>
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">ES</span><input type="number" name="es_days" value={data.es_days} onChange={handleChange} className="form-input" /> 天</div>
+                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">EVT</span><input type="number" name="evt_days" value={data.evt_days} onChange={handleChange} className="form-input" /> 天</div>
+                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">DVT</span><input type="number" name="dvt_days" value={data.dvt_days} onChange={handleChange} className="form-input" /> 天</div>
+                        <div className="flex items-center gap-2"><span className="font-bold text-slate-600">PVT</span><input type="number" name="pvt_days" value={data.pvt_days} onChange={handleChange} className="form-input" /> 天</div>
+                    </div>
+
+                    <div className="form-section-title">六、市场概况 & 七、结论</div>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <textarea name="market" value={data.market} onChange={handleChange} className="form-input h-20" placeholder="企业性质、生产经营状况等..."></textarea>
+                        <textarea name="conclusion" value={data.conclusion} onChange={handleChange} className="form-input h-20" placeholder="评估结论..."></textarea>
+                    </div>
+
+                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+                        <button onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
+                        <button onClick={() => onSave(data)} disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                            {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 子組件：MZ-RD-04-95 粉材初版规格书 ---
+        function Form95({ project, initialData, onSave, onCancel, isLoading }) {
+            const [data, setData] = useState(initialData || {
+                weight: '', outDia: '', inDia: '',
+                processType: '', pressure: '', moldTemp: '', preheatTime: '', holdTime: '',
+                mu: '', drop30a: '', h_20: '', h_30: '', ir50: '', ir100: '', strength: '', salt: '',
+                reliability: '', publisher: '', publishDate: ''
+            });
+
+            const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.value });
+
+            return (
+                <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">粉材初版规格书</h2>
+                    <p className="text-center text-slate-500 mb-8 font-mono">NO: MZ-RD-04-95(A1)</p>
+
+                    <div className="form-section-title">一、磁环尺寸规格</div>
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div><label className="form-label">粉重 (g)</label><input name="weight" value={data.weight} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">磁环外径 (mm)</label><input name="outDia" value={data.outDia} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">磁环内径 (mm)</label><input name="inDia" value={data.inDia} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="form-section-title">二、磁环制作工艺</div>
+                    <div className="grid grid-cols-5 gap-4 mb-6">
+                        <div><label className="form-label">压制工艺</label><input name="processType" value={data.processType} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">压力 (T)</label><input name="pressure" value={data.pressure} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">模具温度 (℃)</label><input name="moldTemp" value={data.moldTemp} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">预热时间 (sec)</label><input name="preheatTime" value={data.preheatTime} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">保压时间 (sec)</label><input name="holdTime" value={data.holdTime} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="form-section-title">三、磁环特性规格</div>
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                        <div><label className="form-label">导磁率 (μ)</label><input name="mu" value={data.mu} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">30A Drop%</label><input name="drop30a" value={data.drop30a} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">饱和20% H(Oe)</label><input name="h_20" value={data.h_20} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">饱和30% H(Oe)</label><input name="h_30" value={data.h_30} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">IR-50V (MΩ)</label><input name="ir50" value={data.ir50} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">IR-100V (MΩ)</label><input name="ir100" value={data.ir100} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">强度 (N/Mpa)</label><input name="strength" value={data.strength} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">盐雾等级</label><input name="salt" value={data.salt} onChange={handleChange} className="form-input" placeholder="35℃; NaCl=5%..." /></div>
+                    </div>
+
+                    <div className="form-section-title">四、信赖性测试标准 & 发布资讯</div>
+                    <div className="grid grid-cols-1 gap-4 mb-8">
+                        <textarea name="reliability" value={data.reliability} onChange={handleChange} className="form-input h-20" placeholder="信赖性测试标准..."></textarea>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div><label className="form-label">发布人</label><input name="publisher" value={data.publisher} onChange={handleChange} className="form-input" /></div>
+                        <div><label className="form-label">发布日期</label><input type="date" name="publishDate" value={data.publishDate} onChange={handleChange} className="form-input" /></div>
+                    </div>
+
+                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+                        <button onClick={onCancel} disabled={isLoading} className="px-6 py-2 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">取消</button>
+                        <button onClick={() => onSave(data)} disabled={isLoading} className={`px-6 py-2 text-white rounded transition shadow-sm ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                            {isLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>上傳生成中...</> : <><i className="fa-solid fa-cloud-arrow-up mr-2"></i>儲存並產生文件上傳</>}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
 
         function App() {
             const [token, setToken] = useState(null);
             const [user, setUser] = useState(null);
             const [view, setView] = useState('dashboard');
+            const [detailMode, setDetailMode] = useState('overview');
             const [projects, setProjects] = useState([]);
             const [activeProject, setActiveProject] = useState(null);
             const [isLoading, setIsLoading] = useState(false);
             const [message, setMessage] = useState('');
 
+            // 本地暫存紀錄表單是否填寫
+            const [filledForms, setFilledForms] = useState(() => {
+                const saved = localStorage.getItem('rd_pms_forms');
+                return saved ? JSON.parse(saved) : {};
+            });
+
+            useEffect(() => {
+                localStorage.setItem('rd_pms_forms', JSON.stringify(filledForms));
+            }, [filledForms]);
+
             const showMsg = (msg) => {
                 setMessage(msg);
-                setTimeout(() => setMessage(''), 3000);
+                setTimeout(() => setMessage(''), 4000);
             };
 
             useEffect(() => {
@@ -78,7 +318,6 @@
                 showMsg('已成功登出系統');
             };
 
-            // 讀取試算表資料，並記錄「資料所在的列數 (rowIndex)」，以供後續修改使用
             const fetchProjects = useCallback(async () => {
                 if (!token) return;
                 setIsLoading(true);
@@ -91,20 +330,20 @@
                     
                     if (data.values && data.values.length > 1) {
                         const formatted = data.values.slice(1).map((row, index) => ({
-                            rowIndex: index + 2, // 試算表第一列是標題，陣列索引從0開始，所以實際列數是 index + 2
+                            rowIndex: index + 2,
                             id: row[0] || '無編號',
                             name: row[1] || '未命名',
                             requester: row[2] || '',
                             leader: row[3] || '待指派',
                             market: row[4] || '',
-                            status: row[5] || PROJECT_STAGES[0] // 預設為第一階段
+                            status: row[5] || PROJECT_STAGES[0]
                         }));
-                        setProjects(formatted.reverse()); // 反轉陣列，讓最新建立的在最上面
+                        setProjects(formatted.reverse());
                     } else {
                         setProjects([]);
                     }
                 } catch (err) {
-                    console.error(err); showMsg('讀取失敗：' + err.message);
+                    showMsg('讀取失敗：' + err.message);
                 } finally {
                     setIsLoading(false);
                 }
@@ -112,85 +351,134 @@
 
             useEffect(() => { if (token) fetchProjects(); }, [token, fetchProjects]);
 
-            // 新增專案
             const handleAddProject = async (newProj) => {
                 setIsLoading(true);
                 try {
                     const body = { values: [[newProj.id, newProj.name, newProj.requester, newProj.leader, newProj.market, newProj.status]] };
-                    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:append?valueInputOption=USER_ENTERED`, {
+                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:append?valueInputOption=USER_ENTERED`, {
                         method: 'POST',
                         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify(body)
                     });
-                    const data = await res.json();
-                    if (data.error) throw new Error(data.error.message);
-                    
                     showMsg('成功建立新專案！');
                     setView('dashboard');
                     fetchProjects();
-                } catch (err) {
-                    showMsg('寫入失敗：' + err.message);
-                } finally {
-                    setIsLoading(false);
-                }
+                } catch (err) { showMsg('寫入失敗：' + err.message); } 
+                finally { setIsLoading(false); }
             };
 
-            // 更新專案狀態 (覆寫指定儲存格)
             const handleUpdateStage = async (project, newStage) => {
                 setIsLoading(true);
                 try {
-                    // 只更新 F 欄 (狀態欄) 的指定列
                     const range = `F${project.rowIndex}`;
                     const body = { values: [[newStage]] };
-                    
-                    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
+                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
                         method: 'PUT',
                         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify(body)
                     });
-                    
-                    const data = await res.json();
-                    if (data.error) throw new Error(data.error.message);
-                    
-                    // 成功後更新本地畫面
                     setActiveProject({ ...project, status: newStage });
-                    showMsg(`專案已推進至：${newStage}`);
-                    fetchProjects(); // 背景重新抓取最新資料
-                } catch (err) {
-                    console.error(err);
-                    showMsg('狀態更新失敗：' + err.message);
-                } finally {
-                    setIsLoading(false);
-                }
+                    showMsg(`專案已成功推進至：${newStage}`);
+                    fetchProjects(); 
+                } catch (err) { showMsg('狀態更新失敗：' + err.message); } 
+                finally { setIsLoading(false); }
             };
 
-            const handleUploadDrive = async (fileName, content) => {
+            // 上傳文件至 Google Drive 的核心函數
+            const handleUploadDrive = async (fileName, content, mimeType = 'text/plain') => {
                 setIsLoading(true);
                 try {
-                    const metadata = { name: fileName, mimeType: 'text/plain' };
+                    const metadata = { name: fileName, mimeType: mimeType };
                     const form = new FormData();
                     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-                    form.append('file', new Blob([content], { type: 'text/plain' }));
+                    form.append('file', new Blob([content], { type: mimeType }));
 
                     const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                         method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
                     });
                     const data = await res.json();
                     if (data.error) throw new Error(data.error.message);
-                    showMsg(`報告 ${fileName} 已儲存至 Google Drive！`);
-                } catch (err) { showMsg('上傳失敗：' + err.message); } 
-                finally { setIsLoading(false); }
+                    showMsg(`生成的文件【${fileName}】已成功上傳至您的 Google Drive！`);
+                    return true;
+                } catch (err) { 
+                    showMsg('文件上傳雲端失敗：' + err.message); 
+                    return false;
+                } finally { 
+                    setIsLoading(false); 
+                }
             };
 
-            // --- UI 渲染區塊 ---
-            
+            // 將表單資料轉換為 CSV，並上傳至 Google Drive
+            const handleSaveForm = async (formKey, formData) => {
+                const escapeCsv = (str) => `"${(str || '').toString().replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+                let csvContent = "";
+                let fileName = "";
+                
+                if (formKey === 'form91') {
+                    fileName = `${activeProject.id}_MZ-RD-04-91_粉材需求确认表.csv`;
+                    csvContent = `粉材需求确认表\nNO:MZ-RD-04-91(A2)\n`;
+                    csvContent += `需求单位,${escapeCsv(formData.dept)},需求人,${escapeCsv(formData.requester)}\n`;
+                    csvContent += `应用机种/客户,${escapeCsv(formData.appMachine)},需求日期,${escapeCsv(formData.reqDate)}\n`;
+                    csvContent += `应用方向,${escapeCsv(formData.appDirection)}\n\n`;
+                    csvContent += `1、粉材特性需求\n*μr,*饱和需求 Idc(A),Drop%,H (Oe),耐压需求 最高电压（V）,最低阻抗（Ω）\n`;
+                    csvContent += `${escapeCsv(formData.mu)},${escapeCsv(formData.idc)},${escapeCsv(formData.drop)},${escapeCsv(formData.h_oe)},${escapeCsv(formData.maxV)},${escapeCsv(formData.minOhm)}\n`;
+                    csvContent += `*盐雾(h),*材料成本(元/kg),*耐温等级(℃),其他\n`;
+                    csvContent += `${escapeCsv(formData.saltSpray)},${escapeCsv(formData.cost)},${escapeCsv(formData.tempClass)},${escapeCsv(formData.other)}\n\n`;
+                    csvContent += `2、信赖性测试需求\n${escapeCsv(formData.reliability)}\n\n`;
+                    csvContent += `签字\n需求人：,${escapeCsv(formData.signReq)},确认人：,${escapeCsv(formData.signConf)}\n`;
+                } else if (formKey === 'form96') {
+                    fileName = `${activeProject.id}_MZ-RD-04-96_可行性评估报告.csv`;
+                    csvContent = `可行性评估报告\nNO:MZ-RD-04-96(A1)\n`;
+                    csvContent += `主导部门：,${escapeCsv(formData.leadDept)},评估日期：,${escapeCsv(formData.evalDate)}\n`;
+                    csvContent += `项目名称,${escapeCsv(formData.projName)},负责人,${escapeCsv(formData.leader)}\n`;
+                    csvContent += `应用机种,${escapeCsv(formData.appMachine)},顾 客 名 称,${escapeCsv(formData.customer)}\n\n`;
+                    csvContent += `一、粉材特性规格（磁环）：\nμr,饱和20% H(Oe）,饱和30% H(Oe）,绝缘 MΩ,绝缘 MΩ,时间 h,温度 ℃,成本 元/kg\n`;
+                    csvContent += `${escapeCsv(formData.mu)},${escapeCsv(formData.h_20)},${escapeCsv(formData.h_30)},${escapeCsv(formData.ir1)},${escapeCsv(formData.ir2)},${escapeCsv(formData.h_time)},${escapeCsv(formData.temp)},${escapeCsv(formData.cost)}\n\n`;
+                    csvContent += `二、材料需求（磁性粉末、胶水）\n类别,已有材料,说明,新开发材料,说明\n`;
+                    csvContent += `粉材,${formData.mat_powder_old?'是':'否'},${escapeCsv(formData.mat_powder_desc)},${formData.mat_powder_new?'是':'否'},${escapeCsv(formData.mat_powder_desc)}\n`;
+                    csvContent += `胶水,${formData.mat_glue_old?'是':'否'},${escapeCsv(formData.mat_glue_desc)},${formData.mat_glue_new?'是':'否'},${escapeCsv(formData.mat_glue_desc)}\n\n`;
+                    csvContent += `三、产品生产工艺\n${escapeCsv(formData.process)}\n\n`;
+                    csvContent += `四、信赖性测试标准\n${escapeCsv(formData.reliability)}\n\n`;
+                    csvContent += `五、新产品开发进度评估\n开发目标阶段：\n`;
+                    csvContent += `ES,${escapeCsv(formData.es_days)} 天,EVT,${escapeCsv(formData.evt_days)} 天,DVT,${escapeCsv(formData.dvt_days)} 天,PVT,${escapeCsv(formData.pvt_days)} 天\n\n`;
+                    csvContent += `六、市场概况（企业性质、生产经营状况、近几年发展情况等）：\n${escapeCsv(formData.market)}\n\n`;
+                    csvContent += `七、结论：\n${escapeCsv(formData.conclusion)}\n`;
+                } else if (formKey === 'form95') {
+                    fileName = `${activeProject.id}_MZ-RD-04-95_粉材初版规格书.csv`;
+                    csvContent = `粉材初版规格书\nNO:MZ-RD-04-95(A1)\n\n一、磁环尺寸规格\n粉重(g),磁环外径(mm),磁环内径(mm)\n`;
+                    csvContent += `${escapeCsv(formData.weight)},${escapeCsv(formData.outDia)},${escapeCsv(formData.inDia)}\n\n`;
+                    csvContent += `二、磁环制作工艺\n压制工艺,压力(T),模具温度(℃),预热时间(sec),保压时间(sec)\n`;
+                    csvContent += `${escapeCsv(formData.processType)},${escapeCsv(formData.pressure)},${escapeCsv(formData.moldTemp)},${escapeCsv(formData.preheatTime)},${escapeCsv(formData.holdTime)}\n\n`;
+                    csvContent += `三、磁环特性规格\n导磁率(μ),30A（Drop%）,饱和20% H(Oe）,饱和30% H(Oe）,IR-50V(MΩ),IR-100V(MΩ),强度(N\\Mpa),盐雾等级\n`;
+                    csvContent += `${escapeCsv(formData.mu)},${escapeCsv(formData.drop30a)},${escapeCsv(formData.h_20)},${escapeCsv(formData.h_30)},${escapeCsv(formData.ir50)},${escapeCsv(formData.ir100)},${escapeCsv(formData.strength)},${escapeCsv(formData.salt)}\n\n`;
+                    csvContent += `四、信赖性测试标准\n${escapeCsv(formData.reliability)}\n\n`;
+                    csvContent += `发布人,${escapeCsv(formData.publisher)},发布日期,${escapeCsv(formData.publishDate)}\n`;
+                }
+
+                // 加入 UTF-8 BOM，讓下載後的 Excel 能正確顯示中文
+                const bom = "\uFEFF";
+                
+                // 呼叫上傳至 Google Drive API
+                const uploadSuccess = await handleUploadDrive(fileName, bom + csvContent, 'text/csv');
+                
+                if (uploadSuccess) {
+                    // 上傳成功才將勾選狀態寫入本地紀錄
+                    setFilledForms(prev => ({
+                        ...prev,
+                        [activeProject.id]: {
+                            ...(prev[activeProject.id] || {}),
+                            [formKey]: formData
+                        }
+                    }));
+                    setDetailMode('overview');
+                }
+            };
+
             if (!token) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-slate-100">
                         <div className="glass-card p-10 rounded-2xl shadow-xl w-full max-w-md text-center border border-slate-200">
-                            <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <i className="fa-solid fa-microchip text-3xl"></i>
-                            </div>
+                            <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6"><i className="fa-solid fa-microchip text-3xl"></i></div>
                             <h1 className="text-2xl font-bold text-slate-800 mb-2">軟磁研發項目管理</h1>
                             <p className="text-slate-500 mb-8 text-sm">此系統已與 Google 雲端安全綁定<br/>請使用您的 Google 帳號授權登入</p>
                             <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-3 shadow-md">
@@ -203,153 +491,112 @@
 
             return (
                 <div className="flex h-screen bg-slate-50 overflow-hidden">
-                    {/* 左側導覽列 */}
+                    {/* 左側導覽 */}
                     <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-10 flex-shrink-0">
                         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
                             <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold"><i className="fa-solid fa-atom"></i></div>
                             <h2 className="text-white font-bold text-lg tracking-wider">RD-PMS</h2>
                         </div>
                         <div className="flex-1 py-6 flex flex-col gap-2 px-4">
-                            <button onClick={() => setView('dashboard')} className={`flex items-center gap-3 w-full p-3 rounded-lg text-left transition ${view === 'dashboard' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}>
+                            <button onClick={() => {setView('dashboard'); setDetailMode('overview');}} className={`flex items-center gap-3 w-full p-3 rounded-lg text-left transition ${view === 'dashboard' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}>
                                 <i className="fa-solid fa-table-list w-5 text-center"></i> 項目總表
                             </button>
-                            <button onClick={() => setView('new')} className={`flex items-center gap-3 w-full p-3 rounded-lg text-left transition ${view === 'new' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}>
+                            <button onClick={() => {setView('new'); setDetailMode('overview');}} className={`flex items-center gap-3 w-full p-3 rounded-lg text-left transition ${view === 'new' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}>
                                 <i className="fa-solid fa-plus w-5 text-center"></i> 新增需求
                             </button>
                         </div>
                         <div className="p-6 border-t border-slate-800 text-sm">
-                            <div className="text-white font-medium mb-1">{user?.name}</div>
-                            <div className="text-slate-500 text-xs mb-4 truncate">{user?.email}</div>
                             <button onClick={handleLogout} className="text-slate-400 hover:text-white transition flex items-center gap-2">
                                 <i className="fa-solid fa-right-from-bracket"></i> 登出系統
                             </button>
                         </div>
                     </div>
 
-                    {/* 右側主內容區 */}
+                    {/* 右側內容 */}
                     <div className="flex-1 flex flex-col h-full relative overflow-hidden">
                         <header className="h-16 bg-white shadow-sm border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
                             <h1 className="text-xl font-bold text-slate-800">
                                 {view === 'dashboard' ? '研發專案總覽' : view === 'new' ? '填寫新申請單' : '專案階段與詳細資訊'}
                             </h1>
-                            <div className="flex items-center gap-4">
-                                {isLoading && <div className="text-blue-600 flex items-center gap-2 text-sm"><i className="fa-solid fa-circle-notch fa-spin"></i> 處理中...</div>}
-                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 flex items-center gap-2">
-                                    <i className="fa-solid fa-cloud-arrow-up"></i> 雲端同步啟動
-                                </span>
-                            </div>
+                            {isLoading && <div className="text-blue-600 flex items-center gap-2 text-sm"><i className="fa-solid fa-circle-notch fa-spin"></i> 處理中...</div>}
                         </header>
 
                         <main className="flex-1 p-8 overflow-auto no-scrollbar">
                             {view === 'dashboard' && (
                                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                    <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                                        <h3 className="font-semibold text-slate-700">最新專案列表</h3>
-                                        <button onClick={fetchProjects} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-2">
-                                            <i className="fa-solid fa-rotate-right"></i> 重新整理
-                                        </button>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse whitespace-nowrap">
-                                            <thead>
-                                                <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
-                                                    <th className="p-4 font-medium">專案編號</th>
-                                                    <th className="p-4 font-medium">專案名稱</th>
-                                                    <th className="p-4 font-medium">負責人</th>
-                                                    <th className="p-4 font-medium">目前階段</th>
-                                                    <th className="p-4 font-medium text-right">操作</th>
+                                    <table className="w-full text-left border-collapse whitespace-nowrap">
+                                        <thead>
+                                            <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
+                                                <th className="p-4 font-medium">專案編號</th>
+                                                <th className="p-4 font-medium">專案名稱</th>
+                                                <th className="p-4 font-medium">負責人</th>
+                                                <th className="p-4 font-medium">目前階段</th>
+                                                <th className="p-4 font-medium text-right">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {projects.map((p, i) => (
+                                                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                                    <td className="p-4 text-slate-500 font-mono text-sm">{p.id}</td>
+                                                    <td className="p-4 font-semibold text-slate-800">{p.name}</td>
+                                                    <td className="p-4 text-slate-600">{p.leader}</td>
+                                                    <td className="p-4">
+                                                        <span className="px-2 py-1 border rounded text-xs font-medium bg-blue-100 text-blue-700 border-blue-200">{p.status}</span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <button onClick={() => { setActiveProject(p); setView('detail'); setDetailMode('overview'); }} className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded font-medium">
+                                                            進入專案 <i className="fa-solid fa-chevron-right text-xs ml-1"></i>
+                                                        </button>
+                                                    </td>
                                                 </tr>
-                                            </thead>
-                                            <tbody>
-                                                {projects.length === 0 ? (
-                                                    <tr><td colSpan="5" className="p-8 text-center text-slate-400">目前沒有資料，請新增您的第一筆專案</td></tr>
-                                                ) : projects.map((p, i) => {
-                                                    // 計算階段進度顏色
-                                                    const stageIdx = PROJECT_STAGES.indexOf(p.status);
-                                                    const isCompleted = stageIdx === PROJECT_STAGES.length - 1;
-                                                    const statusColor = isCompleted ? 'bg-green-100 text-green-700 border-green-200' : 
-                                                                        stageIdx >= 0 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200';
-                                                    return (
-                                                        <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                                            <td className="p-4 text-slate-500 font-mono text-sm">{p.id}</td>
-                                                            <td className="p-4 font-semibold text-slate-800">{p.name}</td>
-                                                            <td className="p-4 text-slate-600">{p.leader}</td>
-                                                            <td className="p-4">
-                                                                <span className={`px-2 py-1 border rounded text-xs font-medium ${statusColor}`}>
-                                                                    {p.status}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <button 
-                                                                    onClick={() => { setActiveProject(p); setView('detail'); }}
-                                                                    className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded transition text-sm font-medium"
-                                                                >
-                                                                    進入專案 <i className="fa-solid fa-chevron-right text-xs ml-1"></i>
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                            ))}
+                                            {projects.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-400">目前沒有資料，請新增您的第一筆專案</td></tr>}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
 
                             {view === 'new' && (
                                 <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-                                    <div className="mb-6 border-b border-slate-100 pb-4">
-                                        <h2 className="text-xl font-bold text-slate-800">建立新專案</h2>
-                                        <p className="text-sm text-slate-500 mt-1">建立後，專案將自動進入「{PROJECT_STAGES[0]}」階段。</p>
-                                    </div>
                                     <form onSubmit={(e) => {
-                                        e.preventDefault();
-                                        const fd = new FormData(e.target);
+                                        e.preventDefault(); const fd = new FormData(e.target);
                                         handleAddProject({
-                                            id: `RD-${Date.now().toString().slice(-6)}`,
-                                            name: fd.get('name'),
-                                            requester: fd.get('requester'),
-                                            leader: '待指派',
-                                            market: fd.get('market'),
-                                            status: PROJECT_STAGES[0] // 預設狀態為第一個階段
+                                            id: `RD-${Date.now().toString().slice(-6)}`, name: fd.get('name'), requester: fd.get('requester'),
+                                            leader: '待指派', market: fd.get('market'), status: PROJECT_STAGES[0]
                                         });
                                     }}>
-                                        <div className="mb-6">
-                                            <label className="block text-sm font-medium text-slate-700 mb-2">專案 / 開發名稱 *</label>
-                                            <input required name="name" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="輸入粉材或機體名稱" />
-                                        </div>
+                                        <div className="mb-6"><label className="block text-sm font-medium text-slate-700 mb-2">專案/開發名稱 *</label><input required name="name" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                                         <div className="grid grid-cols-2 gap-6 mb-8">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">需求人 / 單位 *</label>
-                                                <input required name="requester" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="例如：研發一部" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">應用機體 / 客戶</label>
-                                                <input name="market" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="選填" />
-                                            </div>
+                                            <div><label className="block text-sm font-medium text-slate-700 mb-2">需求人/单位 *</label><input required name="requester" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                                            <div><label className="block text-sm font-medium text-slate-700 mb-2">应用机种/客户</label><input name="market" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                                         </div>
                                         <div className="flex justify-end gap-4">
-                                            <button type="button" onClick={() => setView('dashboard')} className="px-6 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition">取消</button>
-                                            <button type="submit" disabled={isLoading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm disabled:opacity-50 flex items-center gap-2 font-medium">
-                                                <i className="fa-solid fa-flag-checkered"></i> 建立專案立項
-                                            </button>
+                                            <button type="button" onClick={() => setView('dashboard')} className="px-6 py-2 border rounded-lg hover:bg-slate-50">取消</button>
+                                            <button type="submit" disabled={isLoading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"><i className="fa-solid fa-flag-checkered"></i> 建立專案立項</button>
                                         </div>
                                     </form>
                                 </div>
                             )}
 
                             {view === 'detail' && activeProject && (() => {
-                                // 計算目前階段的邏輯
                                 const currentStageIndex = PROJECT_STAGES.indexOf(activeProject.status);
                                 const isFinished = currentStageIndex === PROJECT_STAGES.length - 1;
+                                const isInitiation = currentStageIndex === 0;
+                                
+                                const projForms = filledForms[activeProject.id] || {};
+                                const has91 = !!projForms.form91;
+                                const has96 = !!projForms.form96;
+                                const has95 = !!projForms.form95;
+                                const canAdvanceInitiation = has91 && has96 && has95;
+
+                                if (detailMode === 'form91') return <Form91 project={activeProject} initialData={projForms.form91} onSave={(d) => handleSaveForm('form91', d)} onCancel={() => setDetailMode('overview')} isLoading={isLoading} />;
+                                if (detailMode === 'form96') return <Form96 project={activeProject} initialData={projForms.form96} onSave={(d) => handleSaveForm('form96', d)} onCancel={() => setDetailMode('overview')} isLoading={isLoading} />;
+                                if (detailMode === 'form95') return <Form95 project={activeProject} initialData={projForms.form95} onSave={(d) => handleSaveForm('form95', d)} onCancel={() => setDetailMode('overview')} isLoading={isLoading} />;
 
                                 return (
                                 <div className="max-w-4xl mx-auto">
-                                    <button onClick={() => setView('dashboard')} className="mb-6 text-slate-500 hover:text-slate-800 flex items-center gap-2 transition font-medium">
-                                        <i className="fa-solid fa-arrow-left"></i> 返回總表
-                                    </button>
+                                    <button onClick={() => setView('dashboard')} className="mb-6 text-slate-500 hover:text-slate-800 flex items-center gap-2 font-medium"><i className="fa-solid fa-arrow-left"></i> 返回總表</button>
                                     
-                                    {/* 專案標頭 */}
                                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-6">
                                         <div className="flex justify-between items-start mb-6">
                                             <div>
@@ -359,99 +606,81 @@
                                                     <span><i className="fa-regular fa-user mr-1"></i> {activeProject.leader}</span>
                                                 </div>
                                             </div>
-                                            {/* 狀態標籤 */}
-                                            {isFinished ? (
-                                                <span className="px-4 py-2 bg-green-100 text-green-700 rounded-full font-bold border border-green-200 flex items-center gap-2">
-                                                    <i className="fa-solid fa-check-double"></i> 專案已結案
-                                                </span>
-                                            ) : (
-                                                <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-bold border border-blue-200">
-                                                    <i className="fa-solid fa-spinner fa-spin-pulse mr-2"></i>進行中：{activeProject.status}
-                                                </span>
-                                            )}
+                                            <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-bold border border-blue-200">
+                                                {isFinished ? <><i className="fa-solid fa-check-double mr-2"></i>已結案</> : <><i className="fa-solid fa-spinner fa-spin-pulse mr-2"></i>進行中：{activeProject.status}</>}
+                                            </span>
                                         </div>
 
-                                        {/* 核心功能：進度條 (Stepper) */}
                                         <div className="mt-10 mb-8 relative">
                                             <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-slate-200 rounded-full z-0"></div>
-                                            {/* 已完成的進度線 */}
-                                            <div 
-                                                className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-blue-500 rounded-full z-0 transition-all duration-500 ease-in-out"
-                                                style={{ width: `${currentStageIndex >= 0 ? (currentStageIndex / (PROJECT_STAGES.length - 1)) * 100 : 0}%` }}
-                                            ></div>
-                                            
+                                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-blue-500 rounded-full z-0 transition-all duration-500" style={{ width: `${currentStageIndex >= 0 ? (currentStageIndex / (PROJECT_STAGES.length - 1)) * 100 : 0}%` }}></div>
                                             <div className="relative z-10 flex justify-between">
                                                 {PROJECT_STAGES.map((stage, idx) => {
-                                                    let nodeColor = "bg-white border-slate-300 text-slate-400";
-                                                    let textColor = "text-slate-400";
-                                                    let icon = <span className="text-sm font-bold">{idx + 1}</span>;
-
-                                                    if (idx < currentStageIndex) {
-                                                        // 已完成階段
-                                                        nodeColor = "bg-blue-500 border-blue-500 text-white";
-                                                        textColor = "text-blue-600 font-semibold";
-                                                        icon = <i className="fa-solid fa-check text-sm"></i>;
-                                                    } else if (idx === currentStageIndex) {
-                                                        // 當前階段
-                                                        nodeColor = "bg-white border-blue-500 text-blue-600 ring-4 ring-blue-100";
-                                                        textColor = "text-blue-600 font-bold";
-                                                        // 如果是最後一個階段
-                                                        if(isFinished) {
-                                                            nodeColor = "bg-green-500 border-green-500 text-white ring-4 ring-green-100";
-                                                            textColor = "text-green-600 font-bold";
-                                                            icon = <i className="fa-solid fa-flag-checkered text-sm"></i>;
-                                                        }
-                                                    }
-
+                                                    let nodeColor = idx < currentStageIndex ? "bg-blue-500 border-blue-500 text-white" : idx === currentStageIndex ? "bg-white border-blue-500 text-blue-600 ring-4 ring-blue-100" : "bg-white border-slate-300 text-slate-400";
                                                     return (
                                                         <div key={stage} className="flex flex-col items-center w-16">
-                                                            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors duration-300 ${nodeColor}`}>
-                                                                {icon}
-                                                            </div>
-                                                            <div className={`mt-3 text-xs text-center whitespace-nowrap ${textColor}`}>{stage}</div>
+                                                            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold transition-all ${nodeColor}`}>{idx < currentStageIndex ? <i className="fa-solid fa-check"></i> : idx + 1}</div>
+                                                            <div className="mt-3 text-xs text-center whitespace-nowrap font-medium text-slate-600">{stage}</div>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                         </div>
 
-                                        {/* 推進進度按鈕 */}
-                                        <div className="flex justify-center mt-6 pt-6 border-t border-slate-100">
-                                            {!isFinished && currentStageIndex >= 0 && (
+                                        {isInitiation && (
+                                            <div className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-list-check text-blue-600"></i> 階段任務：立項文件 Check List</h3>
+                                                <p className="text-sm text-slate-500 mb-4">完成下方表單後，系統將自動生成檔案並上傳至您的 Google Drive。</p>
+                                                
+                                                <ul className="space-y-3">
+                                                    <li className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
+                                                        <div className="flex items-center gap-3">
+                                                            {has91 ? <i className="fa-solid fa-square-check text-green-500 text-xl"></i> : <i className="fa-regular fa-square text-slate-300 text-xl"></i>}
+                                                            <span className={`font-medium ${has91 ? 'text-slate-500 line-through' : 'text-slate-700'}`}>MZ-RD-04-91 粉材需求确认表</span>
+                                                        </div>
+                                                        <button onClick={() => setDetailMode('form91')} className="px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded border border-blue-200 transition text-sm">
+                                                            {has91 ? '重新編輯' : '點擊填寫'}
+                                                        </button>
+                                                    </li>
+                                                    <li className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
+                                                        <div className="flex items-center gap-3">
+                                                            {has96 ? <i className="fa-solid fa-square-check text-green-500 text-xl"></i> : <i className="fa-regular fa-square text-slate-300 text-xl"></i>}
+                                                            <span className={`font-medium ${has96 ? 'text-slate-500 line-through' : 'text-slate-700'}`}>MZ-RD-04-96 可行性评估报告</span>
+                                                        </div>
+                                                        <button onClick={() => setDetailMode('form96')} className="px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded border border-blue-200 transition text-sm">
+                                                            {has96 ? '重新編輯' : '點擊填寫'}
+                                                        </button>
+                                                    </li>
+                                                    <li className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
+                                                        <div className="flex items-center gap-3">
+                                                            {has95 ? <i className="fa-solid fa-square-check text-green-500 text-xl"></i> : <i className="fa-regular fa-square text-slate-300 text-xl"></i>}
+                                                            <span className={`font-medium ${has95 ? 'text-slate-500 line-through' : 'text-slate-700'}`}>MZ-RD-04-95 粉材初版规格书</span>
+                                                        </div>
+                                                        <button onClick={() => setDetailMode('form95')} className="px-4 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded border border-blue-200 transition text-sm">
+                                                            {has95 ? '重新編輯' : '點擊填寫'}
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-center mt-8 pt-6 border-t border-slate-100 flex-col items-center">
+                                            {!isFinished && (
                                                 <button 
                                                     onClick={() => handleUpdateStage(activeProject, PROJECT_STAGES[currentStageIndex + 1])}
-                                                    disabled={isLoading}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full shadow-lg transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 font-medium flex items-center gap-2"
+                                                    disabled={isLoading || (isInitiation && !canAdvanceInitiation)}
+                                                    className={`px-8 py-3 rounded-full shadow-lg transition-all font-medium flex items-center gap-2
+                                                        ${isLoading || (isInitiation && !canAdvanceInitiation) 
+                                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                                                            : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'}`}
                                                 >
                                                     推進至下一個階段：{PROJECT_STAGES[currentStageIndex + 1]} <i className="fa-solid fa-arrow-right"></i>
                                                 </button>
                                             )}
+                                            {isInitiation && !canAdvanceInitiation && (
+                                                <p className="text-red-500 text-xs mt-3"><i className="fa-solid fa-circle-exclamation"></i> 請先完成上方所有 Check List 表單並上傳至雲端，方可解鎖推進按鈕。</p>
+                                            )}
                                         </div>
-                                    </div>
-
-                                    {/* 基本資訊區塊 */}
-                                    <div className="grid grid-cols-2 gap-6 p-6 bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
-                                        <div><span className="text-slate-400 block text-xs mb-1 uppercase tracking-wider">需求單位</span><div className="font-medium text-slate-700">{activeProject.requester || '未填寫'}</div></div>
-                                        <div><span className="text-slate-400 block text-xs mb-1 uppercase tracking-wider">應用機體/市場</span><div className="font-medium text-slate-700">{activeProject.market || '未填寫'}</div></div>
-                                    </div>
-
-                                    {/* 檔案區塊 (預留) */}
-                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-                                        <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-                                            <i className="fa-brands fa-google-drive text-blue-500"></i> Google Drive 檔案庫
-                                        </h3>
-                                        <p className="text-slate-500 text-sm mb-6">您可以在各個階段生成相對應的報告並保存至雲端硬碟。</p>
-                                        <button 
-                                            onClick={() => {
-                                                const filename = `${activeProject.id}_${activeProject.status}_報告.txt`;
-                                                const content = `專案名稱：${activeProject.name}\n當前階段：${activeProject.status}\n負責人：${activeProject.leader}\n\n同步時間：${new Date().toLocaleString()}`;
-                                                handleUploadDrive(filename, content);
-                                            }}
-                                            disabled={isLoading}
-                                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-6 py-2 rounded-lg transition disabled:opacity-50 flex items-center gap-2 font-medium"
-                                        >
-                                            <i className="fa-solid fa-file-arrow-up"></i> 生成【{activeProject.status}】階段報告
-                                        </button>
                                     </div>
                                 </div>
                                 );
@@ -459,7 +688,7 @@
                         </main>
 
                         {message && (
-                            <div className="absolute bottom-8 right-8 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-fade-in-up z-50">
+                            <div className="absolute bottom-8 right-8 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50">
                                 <i className="fa-solid fa-circle-check text-green-400"></i> {message}
                             </div>
                         )}
