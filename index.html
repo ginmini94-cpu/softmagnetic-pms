@@ -4,21 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>軟磁項目管理系統</title>
-    <!-- 引入 Tailwind CSS (負責美觀的介面) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- 引入 Babel (讓瀏覽器看得懂 React 語法) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- 引入 Google 最新的登入驗證套件 (GIS) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <!-- 引入圖示庫 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        /* 隱藏滾動條但保留滾動功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>
@@ -28,11 +26,14 @@
         const { useState, useEffect, useCallback } = React;
 
         // ============================================================================
-        // 🔑 您的專屬 API 設定 (已為您填入正確的 1cdr 鑰匙)
+        // 🔑 您的專屬 API 設定
         // ============================================================================
         const CLIENT_ID = '247871499678-q55hb2a2h95e1evafkthp54qhrrr1cdr.apps.googleusercontent.com';
         const SHEET_ID = '1t-oE-CkyhrFH30V2Hl3FPxQ49VwEteqF_w3VoEIvdV4';
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+        
+        // 定義專案開發的標準階段
+        const PROJECT_STAGES = ['項目立項', 'Es', 'EVT', 'DVT', 'PVT', '項目總結'];
         // ============================================================================
 
         function App() {
@@ -44,13 +45,11 @@
             const [isLoading, setIsLoading] = useState(false);
             const [message, setMessage] = useState('');
 
-            // 顯示提示訊息
             const showMsg = (msg) => {
                 setMessage(msg);
                 setTimeout(() => setMessage(''), 3000);
             };
 
-            // 初始化 Google 登入客戶端
             useEffect(() => {
                 const initClient = () => {
                     if (window.google) {
@@ -60,35 +59,26 @@
                             callback: (tokenResponse) => {
                                 if (tokenResponse && tokenResponse.access_token) {
                                     setToken(tokenResponse.access_token);
-                                    // 抓取基本使用者資訊 (選用)
                                     setUser({ name: '授權使用者', email: '已連線至 Google Cloud' });
                                 }
                             },
                         });
                     }
                 };
-                // 等待 GIS 腳本載入
                 setTimeout(initClient, 1000);
             }, []);
 
-            // 登入觸發
             const handleLogin = () => {
-                if (window.tokenClient) {
-                    window.tokenClient.requestAccessToken({ prompt: 'consent' });
-                } else {
-                    showMsg('Google 登入模組尚未載入，請稍後重試');
-                }
+                if (window.tokenClient) window.tokenClient.requestAccessToken({ prompt: 'consent' });
+                else showMsg('Google 登入模組尚未載入，請稍後重試');
             };
 
             const handleLogout = () => {
-                setToken(null);
-                setUser(null);
-                setProjects([]);
-                setView('dashboard');
+                setToken(null); setUser(null); setProjects([]); setView('dashboard');
                 showMsg('已成功登出系統');
             };
 
-            // 讀取試算表資料 (完全不依賴舊版 gapi，改用最穩定的原生 fetch)
+            // 讀取試算表資料，並記錄「資料所在的列數 (rowIndex)」，以供後續修改使用
             const fetchProjects = useCallback(async () => {
                 if (!token) return;
                 setIsLoading(true);
@@ -97,37 +87,32 @@
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     const data = await res.json();
-                    
                     if (data.error) throw new Error(data.error.message);
                     
                     if (data.values && data.values.length > 1) {
-                        const formatted = data.values.slice(1).map(row => ({
+                        const formatted = data.values.slice(1).map((row, index) => ({
+                            rowIndex: index + 2, // 試算表第一列是標題，陣列索引從0開始，所以實際列數是 index + 2
                             id: row[0] || '無編號',
                             name: row[1] || '未命名',
                             requester: row[2] || '',
                             leader: row[3] || '待指派',
                             market: row[4] || '',
-                            status: row[5] || '新申請'
+                            status: row[5] || PROJECT_STAGES[0] // 預設為第一階段
                         }));
-                        setProjects(formatted.reverse());
-                        showMsg('資料同步完成');
+                        setProjects(formatted.reverse()); // 反轉陣列，讓最新建立的在最上面
                     } else {
                         setProjects([]);
                     }
                 } catch (err) {
-                    console.error(err);
-                    showMsg('讀取失敗：' + err.message);
+                    console.error(err); showMsg('讀取失敗：' + err.message);
                 } finally {
                     setIsLoading(false);
                 }
             }, [token]);
 
-            // 當取得 token 時自動抓取資料
-            useEffect(() => {
-                if (token) fetchProjects();
-            }, [token, fetchProjects]);
+            useEffect(() => { if (token) fetchProjects(); }, [token, fetchProjects]);
 
-            // 寫入試算表
+            // 新增專案
             const handleAddProject = async (newProj) => {
                 setIsLoading(true);
                 try {
@@ -140,18 +125,45 @@
                     const data = await res.json();
                     if (data.error) throw new Error(data.error.message);
                     
-                    showMsg('成功寫入雲端試算表！');
+                    showMsg('成功建立新專案！');
                     setView('dashboard');
                     fetchProjects();
                 } catch (err) {
-                    console.error(err);
                     showMsg('寫入失敗：' + err.message);
                 } finally {
                     setIsLoading(false);
                 }
             };
 
-            // 檔案上傳至 Google Drive (使用 Multipart Upload)
+            // 更新專案狀態 (覆寫指定儲存格)
+            const handleUpdateStage = async (project, newStage) => {
+                setIsLoading(true);
+                try {
+                    // 只更新 F 欄 (狀態欄) 的指定列
+                    const range = `F${project.rowIndex}`;
+                    const body = { values: [[newStage]] };
+                    
+                    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
+                        method: 'PUT',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error.message);
+                    
+                    // 成功後更新本地畫面
+                    setActiveProject({ ...project, status: newStage });
+                    showMsg(`專案已推進至：${newStage}`);
+                    fetchProjects(); // 背景重新抓取最新資料
+                } catch (err) {
+                    console.error(err);
+                    showMsg('狀態更新失敗：' + err.message);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
             const handleUploadDrive = async (fileName, content) => {
                 setIsLoading(true);
                 try {
@@ -161,41 +173,29 @@
                     form.append('file', new Blob([content], { type: 'text/plain' }));
 
                     const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                        method: 'POST',
-                        headers: { Authorization: `Bearer ${token}` },
-                        body: form
+                        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
                     });
                     const data = await res.json();
                     if (data.error) throw new Error(data.error.message);
-                    
-                    showMsg(`報告 ${fileName} 已成功儲存至您的 Google Drive！`);
-                } catch (err) {
-                    console.error(err);
-                    showMsg('上傳失敗：' + err.message);
-                } finally {
-                    setIsLoading(false);
-                }
+                    showMsg(`報告 ${fileName} 已儲存至 Google Drive！`);
+                } catch (err) { showMsg('上傳失敗：' + err.message); } 
+                finally { setIsLoading(false); }
             };
 
-            // === UI 元件區 ===
+            // --- UI 渲染區塊 ---
             
             if (!token) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-slate-100">
                         <div className="glass-card p-10 rounded-2xl shadow-xl w-full max-w-md text-center border border-slate-200">
                             <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <i className="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                                <i className="fa-solid fa-microchip text-3xl"></i>
                             </div>
                             <h1 className="text-2xl font-bold text-slate-800 mb-2">軟磁研發項目管理</h1>
                             <p className="text-slate-500 mb-8 text-sm">此系統已與 Google 雲端安全綁定<br/>請使用您的 Google 帳號授權登入</p>
-                            <button 
-                                onClick={handleLogin}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-3 shadow-md"
-                            >
-                                <i className="fa-brands fa-google"></i>
-                                使用 Google 帳號登入
+                            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-3 shadow-md">
+                                <i className="fa-brands fa-google"></i> 使用 Google 帳號登入
                             </button>
-                            <p className="text-xs text-slate-400 mt-6 mt-4">Powered by GitHub Pages & React</p>
                         </div>
                     </div>
                 );
@@ -204,9 +204,9 @@
             return (
                 <div className="flex h-screen bg-slate-50 overflow-hidden">
                     {/* 左側導覽列 */}
-                    <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-10">
+                    <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-10 flex-shrink-0">
                         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold">SM</div>
+                            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold"><i className="fa-solid fa-atom"></i></div>
                             <h2 className="text-white font-bold text-lg tracking-wider">RD-PMS</h2>
                         </div>
                         <div className="flex-1 py-6 flex flex-col gap-2 px-4">
@@ -227,22 +227,20 @@
                     </div>
 
                     {/* 右側主內容區 */}
-                    <div className="flex-1 flex flex-col h-full relative">
-                        {/* 頂部 Header */}
-                        <header className="h-16 bg-white shadow-sm border-b border-slate-200 flex items-center justify-between px-8 z-0">
+                    <div className="flex-1 flex flex-col h-full relative overflow-hidden">
+                        <header className="h-16 bg-white shadow-sm border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
                             <h1 className="text-xl font-bold text-slate-800">
-                                {view === 'dashboard' ? '專案總覽' : view === 'new' ? '填寫新申請單' : '專案詳細資訊'}
+                                {view === 'dashboard' ? '研發專案總覽' : view === 'new' ? '填寫新申請單' : '專案階段與詳細資訊'}
                             </h1>
                             <div className="flex items-center gap-4">
-                                {isLoading && <div className="text-blue-600 flex items-center gap-2"><i className="fa-solid fa-circle-notch fa-spin"></i> 同步中...</div>}
+                                {isLoading && <div className="text-blue-600 flex items-center gap-2 text-sm"><i className="fa-solid fa-circle-notch fa-spin"></i> 處理中...</div>}
                                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 flex items-center gap-2">
-                                    <i className="fa-solid fa-link"></i> Google 雲端已連線
+                                    <i className="fa-solid fa-cloud-arrow-up"></i> 雲端同步啟動
                                 </span>
                             </div>
                         </header>
 
-                        {/* 內容區塊 */}
-                        <main className="flex-1 p-8 overflow-auto">
+                        <main className="flex-1 p-8 overflow-auto no-scrollbar">
                             {view === 'dashboard' && (
                                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                     <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
@@ -252,39 +250,46 @@
                                         </button>
                                     </div>
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
+                                        <table className="w-full text-left border-collapse whitespace-nowrap">
                                             <thead>
                                                 <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
                                                     <th className="p-4 font-medium">專案編號</th>
-                                                    <th className="p-4 font-medium">開發名稱</th>
+                                                    <th className="p-4 font-medium">專案名稱</th>
                                                     <th className="p-4 font-medium">負責人</th>
-                                                    <th className="p-4 font-medium">狀態</th>
+                                                    <th className="p-4 font-medium">目前階段</th>
                                                     <th className="p-4 font-medium text-right">操作</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {projects.length === 0 ? (
                                                     <tr><td colSpan="5" className="p-8 text-center text-slate-400">目前沒有資料，請新增您的第一筆專案</td></tr>
-                                                ) : projects.map((p, i) => (
-                                                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                                        <td className="p-4 text-slate-500 font-mono text-sm">{p.id}</td>
-                                                        <td className="p-4 font-semibold text-slate-800">{p.name}</td>
-                                                        <td className="p-4 text-slate-600">{p.leader}</td>
-                                                        <td className="p-4">
-                                                            <span className={`px-2 py-1 rounded text-xs font-medium ${p.status === '新申請' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                                {p.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 text-right">
-                                                            <button 
-                                                                onClick={() => { setActiveProject(p); setView('detail'); }}
-                                                                className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded transition text-sm"
-                                                            >
-                                                                詳情 <i className="fa-solid fa-chevron-right text-xs ml-1"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                ) : projects.map((p, i) => {
+                                                    // 計算階段進度顏色
+                                                    const stageIdx = PROJECT_STAGES.indexOf(p.status);
+                                                    const isCompleted = stageIdx === PROJECT_STAGES.length - 1;
+                                                    const statusColor = isCompleted ? 'bg-green-100 text-green-700 border-green-200' : 
+                                                                        stageIdx >= 0 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200';
+                                                    return (
+                                                        <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                                            <td className="p-4 text-slate-500 font-mono text-sm">{p.id}</td>
+                                                            <td className="p-4 font-semibold text-slate-800">{p.name}</td>
+                                                            <td className="p-4 text-slate-600">{p.leader}</td>
+                                                            <td className="p-4">
+                                                                <span className={`px-2 py-1 border rounded text-xs font-medium ${statusColor}`}>
+                                                                    {p.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-right">
+                                                                <button 
+                                                                    onClick={() => { setActiveProject(p); setView('detail'); }}
+                                                                    className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded transition text-sm font-medium"
+                                                                >
+                                                                    進入專案 <i className="fa-solid fa-chevron-right text-xs ml-1"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -293,6 +298,10 @@
 
                             {view === 'new' && (
                                 <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                                    <div className="mb-6 border-b border-slate-100 pb-4">
+                                        <h2 className="text-xl font-bold text-slate-800">建立新專案</h2>
+                                        <p className="text-sm text-slate-500 mt-1">建立後，專案將自動進入「{PROJECT_STAGES[0]}」階段。</p>
+                                    </div>
                                     <form onSubmit={(e) => {
                                         e.preventDefault();
                                         const fd = new FormData(e.target);
@@ -302,78 +311,155 @@
                                             requester: fd.get('requester'),
                                             leader: '待指派',
                                             market: fd.get('market'),
-                                            status: '新申請'
+                                            status: PROJECT_STAGES[0] // 預設狀態為第一個階段
                                         });
                                     }}>
                                         <div className="mb-6">
-                                            <label className="block text-sm font-medium text-slate-700 mb-2">專案/開發名稱 *</label>
-                                            <input required name="name" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="輸入粉材或機體名稱" />
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">專案 / 開發名稱 *</label>
+                                            <input required name="name" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="輸入粉材或機體名稱" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-6 mb-8">
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">需求人/單位 *</label>
-                                                <input required name="requester" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例如：研發一部" />
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">需求人 / 單位 *</label>
+                                                <input required name="requester" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="例如：研發一部" />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">應用機體/客戶</label>
-                                                <input name="market" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="選填" />
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">應用機體 / 客戶</label>
+                                                <input name="market" type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="選填" />
                                             </div>
                                         </div>
                                         <div className="flex justify-end gap-4">
                                             <button type="button" onClick={() => setView('dashboard')} className="px-6 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition">取消</button>
-                                            <button type="submit" disabled={isLoading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm disabled:opacity-50 flex items-center gap-2">
-                                                <i className="fa-solid fa-cloud-arrow-up"></i> 提交寫入雲端
+                                            <button type="submit" disabled={isLoading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm disabled:opacity-50 flex items-center gap-2 font-medium">
+                                                <i className="fa-solid fa-flag-checkered"></i> 建立專案立項
                                             </button>
                                         </div>
                                     </form>
                                 </div>
                             )}
 
-                            {view === 'detail' && activeProject && (
-                                <div className="max-w-3xl mx-auto">
-                                    <button onClick={() => setView('dashboard')} className="mb-6 text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+                            {view === 'detail' && activeProject && (() => {
+                                // 計算目前階段的邏輯
+                                const currentStageIndex = PROJECT_STAGES.indexOf(activeProject.status);
+                                const isFinished = currentStageIndex === PROJECT_STAGES.length - 1;
+
+                                return (
+                                <div className="max-w-4xl mx-auto">
+                                    <button onClick={() => setView('dashboard')} className="mb-6 text-slate-500 hover:text-slate-800 flex items-center gap-2 transition font-medium">
                                         <i className="fa-solid fa-arrow-left"></i> 返回總表
                                     </button>
                                     
+                                    {/* 專案標頭 */}
                                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-6">
                                         <div className="flex justify-between items-start mb-6">
                                             <div>
                                                 <h2 className="text-3xl font-bold text-slate-800 mb-2">{activeProject.name}</h2>
-                                                <p className="text-slate-500 font-mono">{activeProject.id}</p>
+                                                <div className="flex items-center gap-3 text-sm text-slate-500">
+                                                    <span className="font-mono bg-slate-100 px-2 py-1 rounded border border-slate-200">{activeProject.id}</span>
+                                                    <span><i className="fa-regular fa-user mr-1"></i> {activeProject.leader}</span>
+                                                </div>
                                             </div>
-                                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">{activeProject.status}</span>
+                                            {/* 狀態標籤 */}
+                                            {isFinished ? (
+                                                <span className="px-4 py-2 bg-green-100 text-green-700 rounded-full font-bold border border-green-200 flex items-center gap-2">
+                                                    <i className="fa-solid fa-check-double"></i> 專案已結案
+                                                </span>
+                                            ) : (
+                                                <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-bold border border-blue-200">
+                                                    <i className="fa-solid fa-spinner fa-spin-pulse mr-2"></i>進行中：{activeProject.status}
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 rounded-lg border border-slate-100">
-                                            <div><span className="text-slate-400 block text-xs mb-1">需求單位</span><div className="font-medium text-slate-700">{activeProject.requester || '-'}</div></div>
-                                            <div><span className="text-slate-400 block text-xs mb-1">負責人</span><div className="font-medium text-slate-700">{activeProject.leader}</div></div>
-                                            <div className="col-span-2"><span className="text-slate-400 block text-xs mb-1">應用機體/市場</span><div className="font-medium text-slate-700">{activeProject.market || '-'}</div></div>
+
+                                        {/* 核心功能：進度條 (Stepper) */}
+                                        <div className="mt-10 mb-8 relative">
+                                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-slate-200 rounded-full z-0"></div>
+                                            {/* 已完成的進度線 */}
+                                            <div 
+                                                className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-blue-500 rounded-full z-0 transition-all duration-500 ease-in-out"
+                                                style={{ width: `${currentStageIndex >= 0 ? (currentStageIndex / (PROJECT_STAGES.length - 1)) * 100 : 0}%` }}
+                                            ></div>
+                                            
+                                            <div className="relative z-10 flex justify-between">
+                                                {PROJECT_STAGES.map((stage, idx) => {
+                                                    let nodeColor = "bg-white border-slate-300 text-slate-400";
+                                                    let textColor = "text-slate-400";
+                                                    let icon = <span className="text-sm font-bold">{idx + 1}</span>;
+
+                                                    if (idx < currentStageIndex) {
+                                                        // 已完成階段
+                                                        nodeColor = "bg-blue-500 border-blue-500 text-white";
+                                                        textColor = "text-blue-600 font-semibold";
+                                                        icon = <i className="fa-solid fa-check text-sm"></i>;
+                                                    } else if (idx === currentStageIndex) {
+                                                        // 當前階段
+                                                        nodeColor = "bg-white border-blue-500 text-blue-600 ring-4 ring-blue-100";
+                                                        textColor = "text-blue-600 font-bold";
+                                                        // 如果是最後一個階段
+                                                        if(isFinished) {
+                                                            nodeColor = "bg-green-500 border-green-500 text-white ring-4 ring-green-100";
+                                                            textColor = "text-green-600 font-bold";
+                                                            icon = <i className="fa-solid fa-flag-checkered text-sm"></i>;
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <div key={stage} className="flex flex-col items-center w-16">
+                                                            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors duration-300 ${nodeColor}`}>
+                                                                {icon}
+                                                            </div>
+                                                            <div className={`mt-3 text-xs text-center whitespace-nowrap ${textColor}`}>{stage}</div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* 推進進度按鈕 */}
+                                        <div className="flex justify-center mt-6 pt-6 border-t border-slate-100">
+                                            {!isFinished && currentStageIndex >= 0 && (
+                                                <button 
+                                                    onClick={() => handleUpdateStage(activeProject, PROJECT_STAGES[currentStageIndex + 1])}
+                                                    disabled={isLoading}
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full shadow-lg transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 font-medium flex items-center gap-2"
+                                                >
+                                                    推進至下一個階段：{PROJECT_STAGES[currentStageIndex + 1]} <i className="fa-solid fa-arrow-right"></i>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
+                                    {/* 基本資訊區塊 */}
+                                    <div className="grid grid-cols-2 gap-6 p-6 bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
+                                        <div><span className="text-slate-400 block text-xs mb-1 uppercase tracking-wider">需求單位</span><div className="font-medium text-slate-700">{activeProject.requester || '未填寫'}</div></div>
+                                        <div><span className="text-slate-400 block text-xs mb-1 uppercase tracking-wider">應用機體/市場</span><div className="font-medium text-slate-700">{activeProject.market || '未填寫'}</div></div>
+                                    </div>
+
+                                    {/* 檔案區塊 (預留) */}
                                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
                                         <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-                                            <i className="fa-brands fa-google-drive text-green-600"></i> Google Drive 檔案庫
+                                            <i className="fa-brands fa-google-drive text-blue-500"></i> Google Drive 檔案庫
                                         </h3>
-                                        <p className="text-slate-500 text-sm mb-6">點擊下方按鈕，系統會自動生成本專案的測試報告，並將其上傳到您的雲端硬碟中。</p>
+                                        <p className="text-slate-500 text-sm mb-6">您可以在各個階段生成相對應的報告並保存至雲端硬碟。</p>
                                         <button 
                                             onClick={() => {
-                                                const filename = `${activeProject.id}_${activeProject.name}_測試報告.txt`;
-                                                const content = `這是由 GitHub Pages 軟磁管理系統自動生成的報告。\n\n專案編號：${activeProject.id}\n專案名稱：${activeProject.name}\n負責人：${activeProject.leader}\n\n同步時間：${new Date().toLocaleString()}`;
+                                                const filename = `${activeProject.id}_${activeProject.status}_報告.txt`;
+                                                const content = `專案名稱：${activeProject.name}\n當前階段：${activeProject.status}\n負責人：${activeProject.leader}\n\n同步時間：${new Date().toLocaleString()}`;
                                                 handleUploadDrive(filename, content);
                                             }}
                                             disabled={isLoading}
-                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition shadow-sm disabled:opacity-50 flex items-center gap-2"
+                                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-6 py-2 rounded-lg transition disabled:opacity-50 flex items-center gap-2 font-medium"
                                         >
-                                            <i className="fa-solid fa-file-export"></i> 產生報告並上傳雲端硬碟
+                                            <i className="fa-solid fa-file-arrow-up"></i> 生成【{activeProject.status}】階段報告
                                         </button>
                                     </div>
                                 </div>
-                            )}
+                                );
+                            })()}
                         </main>
 
-                        {/* 浮動提示框 */}
                         {message && (
-                            <div className="absolute bottom-8 right-8 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-bounce">
+                            <div className="absolute bottom-8 right-8 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-fade-in-up z-50">
                                 <i className="fa-solid fa-circle-check text-green-400"></i> {message}
                             </div>
                         )}
