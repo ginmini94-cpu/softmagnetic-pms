@@ -63,7 +63,7 @@
                 return () => clearInterval(checkGis);
             }, []);
 
-            // 2. 登入處理
+            // 2. 登入處理 (加入強制選擇帳號的功能)
             const handleLogin = () => {
                 if (!window.google) {
                     showMsg('Google 登入模組尚未載入完成，請稍後重試。');
@@ -79,7 +79,9 @@
                         }
                     },
                 });
-                client.requestAccessToken({ prompt: 'consent' });
+                
+                // 🌟 關鍵修改：加入 'select_account'，每次都會強制跳出選擇帳號的視窗
+                client.requestAccessToken({ prompt: 'select_account consent' });
             };
 
             const handleLogout = () => {
