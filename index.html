@@ -63,7 +63,7 @@
                 return () => clearInterval(checkGis);
             }, []);
 
-            // 2. 登入處理 (雙重設定強制選擇帳號)
+            // 2. 登入處理 (終極強制選擇帳號指令)
             const handleLogin = () => {
                 if (!window.google) {
                     showMsg('Google 登入模組尚未載入完成，請稍後重試。');
@@ -72,7 +72,6 @@
                 const client = window.google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
-                    prompt: 'select_account', // 預設配置要求選擇帳號
                     callback: (tokenResponse) => {
                         if (tokenResponse && tokenResponse.access_token) {
                             setToken(tokenResponse.access_token);
@@ -81,11 +80,11 @@
                     },
                 });
                 
-                // 請求授權時，強制覆蓋設定要求選擇帳號
-                client.requestAccessToken({ prompt: 'select_account' });
+                // 🌟 關鍵修改：強制要求同時跳出「選擇帳號」與「同意權限」視窗
+                client.requestAccessToken({ prompt: 'consent select_account' });
             };
 
-            // 🌟 關鍵修改：登出時強制「撤銷授權」，讓 Google 忘記您的帳號記憶
+            // 3. 登出時強制「撤銷授權」
             const handleLogout = () => {
                 if (token && window.google) {
                     window.google.accounts.oauth2.revoke(token, () => {
@@ -98,7 +97,7 @@
                 showMsg('已成功登出並清除帳號綁定。下次登入將可重新選擇帳號。');
             };
 
-            // 3. 讀取 Google 試算表資料
+            // 4. 讀取 Google 試算表資料
             const fetchProjects = useCallback(async () => {
                 if (!token) return;
                 setIsLoading(true);
@@ -152,7 +151,7 @@
 
             useEffect(() => { if (token) fetchProjects(); }, [token, fetchProjects]);
 
-            // 4. 寫入新專案至 Google 試算表
+            // 5. 寫入新專案至 Google 試算表
             const handleCreateRequirement = async (formData) => {
                 setIsLoading(true);
                 try {
@@ -197,7 +196,7 @@
                 }
             };
 
-            // 5. 上傳檔案至 Google Drive
+            // 6. 上傳檔案至 Google Drive
             const uploadToDrive = async (fileName, fileContent) => {
                 if (!token) return;
                 setIsLoading(true);
