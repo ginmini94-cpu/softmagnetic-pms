@@ -1,629 +1,580 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ClipboardList, 
-  FileText, 
-  Upload, 
-  CheckCircle, 
-  Clock, 
-  Home, 
-  PlusCircle, 
-  FolderOpen,
-  ChevronRight,
-  Play,
-  HardDrive,
-  Download,
-  Calendar,
-  Target
-} from 'lucide-react';
-
-// 新增 Firebase 雲端資料庫模組
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection, onSnapshot } from 'firebase/firestore';
-
-// 替換為您的專屬 Firebase Config
-const firebaseConfig = {
-  apiKey: "AIzaSyCLyGDFlSDszQBihwCDs2qe99Rm-wYmCeM",
-  authDomain: "softmagnetic-pms.firebaseapp.com",
-  projectId: "softmagnetic-pms",
-  storageBucket: "softmagnetic-pms.firebasestorage.app",
-  messagingSenderId: "507223585934",
-  appId: "1:507223585934:web:78b8938bd16e138dc205df"
-};
-
-// 初始化 Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-// ----------------------------------------------------------------------
-// 模擬資料 (Mock Data) - 依照新版項目總表格式
-// ----------------------------------------------------------------------
-const initialProjects = [
-  {
-    id: 'CF26RD01',
-    reqDescription: '1.μ=30-45 2.Core Loss < 20000mW/cm3在3MHz 3.耐溫等級在125℃以上',
-    name: 'UIB制程μr(30~35)125等級材料開發',
-    leader: '莊宇翔',
-    department: '小顆材料課',
-    appPosition: '',
-    customer: '',
-    status: 'ES', // 評估, ES, EVT, DVT, PVT, 結案
-    specs: {
-      item1: 'μr', val1: '(30~35)',
-      item2: 'Hsat', val2: '',
-      item3: 'Core loss', val3: '<20000(3MHz)',
-      item4: '', val4: '',
-      others: ''
-    },
-    timeline: {
-      start: '2025-12-01',
-      es: '2026-01-15',
-      evt: '2026-03-15',
-      dvt: '2026-05-15',
-      pvt: '2026-07-15'
-    },
-    targetPN: '',
-    remark: '',
-    files: []
-  },
-  {
-    id: 'CF26RD02-2',
-    reqDescription: '輕載效率提升3%\nT-core u=33-36\nMolding u=34-37',
-    name: 'TP(小顆)制程μr(33~37)消費類125等級材料開發',
-    leader: '莊宇翔',
-    department: '小顆材料課',
-    appPosition: '',
-    customer: '',
-    status: '評估',
-    specs: {
-      item1: 'μr', val1: '(33~37)',
-      item2: 'Hsat', val2: '',
-      item3: 'Core loss', val3: '',
-      item4: '', val4: '',
-      others: ''
-    },
-    timeline: {
-      start: '2026-01-05',
-      es: '2026-01-19',
-      evt: '2026-03-20',
-      dvt: '2026-05-19',
-      pvt: ''
-    },
-    targetPN: '',
-    remark: '',
-    files: []
-  }
-];
-
-const STAGES = ['評估', 'ES', 'EVT', 'DVT', 'PVT', '結案'];
-const DEPARTMENTS = ['小顆材料課', '先進材料課', '通用材料課', 'AI產品課', '其他'];
-
-// ----------------------------------------------------------------------
-// 主應用程式組件
-// ----------------------------------------------------------------------
-export default function App() {
-  const [currentView, setCurrentView] = useState('dashboard'); 
-  const [projects, setProjects] = useState(initialProjects);
-  const [activeProject, setActiveProject] = useState(null);
-
-  const [user, setUser] = useState(null);
-  const [isCloudSynced, setIsCloudSynced] = useState(false);
-
-  useEffect(() => {
-    if (!auth) return;
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          try {
-            await signInWithCustomToken(auth, __initial_auth_token);
-          } catch (tokenError) {
-            console.warn("自訂權杖失效，改用匿名登入...", tokenError);
-            await signInAnonymously(auth);
-          }
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("驗證失敗:", error);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user || !db) return;
-    const projectsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'projects');
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>軟磁項目管理系統 - 私有版</title>
+    <!-- Tailwind CSS (負責美觀的介面) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel (讓瀏覽器看得懂 React 語法) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Identity Services (Google 登入驗證) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- FontAwesome Icons (圖示庫) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    const unsubscribe = onSnapshot(projectsRef, (snapshot) => {
-      if (snapshot.empty) {
-        initialProjects.forEach(async (proj) => {
-          await setDoc(doc(projectsRef, proj.id), proj);
-        });
-      } else {
-        const loadedProjects = snapshot.docs.map(doc => doc.data());
-        loadedProjects.sort((a, b) => b.id.localeCompare(a.id)); 
-        setProjects(loadedProjects);
-        setIsCloudSynced(true);
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-        setActiveProject(prev => {
-          if (!prev) return null;
-          return loadedProjects.find(p => p.id === prev.id) || prev;
-        });
-      }
-    }, (error) => {
-      console.error("讀取資料失敗:", error);
-    });
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
 
-    return () => unsubscribe();
-  }, [user]);
-
-  const navigate = (view, project = null) => {
-    setActiveProject(project);
-    setCurrentView(view);
-  };
-
-  const handleExportData = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `SoftMagnetic_Projects_${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(downloadAnchorNode); 
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  // 處理表單送出
-  const handleCreateRequirement = async (formData) => {
-    const newId = formData.id || `NEW-${new Date().getFullYear().toString().slice(-2)}RD-${Math.floor(Math.random() * 1000)}`;
-    
-    const newProject = {
-      ...formData,
-      id: newId,
-      status: '評估',
-      files: [
-        { name: '系統自動生成_項目申請表.pdf', stage: '需求', date: new Date().toISOString().split('T')[0] }
-      ]
-    };
-    
-    if (user && db) {
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', newId), newProject);
-    } else {
-      setProjects([newProject, ...projects]); 
-    }
-    navigate('dashboard');
-  };
-
-  return (
-    <div className="min-h-screen flex bg-slate-50 font-sans text-slate-800">
-      <div className="w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl z-10">
-        <div className="p-6 border-b border-slate-700 flex items-center space-x-3">
-          <FolderOpen className="text-blue-400" />
-          <h1 className="text-xl font-bold tracking-wider">RD-PMS</h1>
-        </div>
-        <nav className="flex-1 py-4">
-          <ul className="space-y-1">
-            <li>
-              <button onClick={() => navigate('dashboard')} className={`w-full flex items-center px-6 py-3 space-x-3 transition-colors ${currentView === 'dashboard' ? 'bg-blue-600 border-l-4 border-blue-400' : 'hover:bg-slate-800 border-l-4 border-transparent'}`}>
-                <Home size={20} /><span>項目總表</span>
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate('new-req')} className={`w-full flex items-center px-6 py-3 space-x-3 transition-colors ${currentView === 'new-req' ? 'bg-blue-600 border-l-4 border-blue-400' : 'hover:bg-slate-800 border-l-4 border-transparent'}`}>
-                <PlusCircle size={20} /><span>項目申請與立項</span>
-              </button>
-            </li>
-          </ul>
-        </nav>
-        <div className="p-4 text-xs text-slate-500 border-t border-slate-800 text-center">
-          研發項目管理系統 v2.0
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        <header className="bg-white shadow-sm px-8 py-4 flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-2xl font-semibold text-slate-800">
-            {currentView === 'dashboard' && '研發項目總表清單'}
-            {currentView === 'new-req' && '填寫研發項目申請表'}
-            {currentView === 'project-detail' && '專案詳情與進度'}
-          </h2>
-          <div className="flex items-center space-x-4">
-             <button onClick={handleExportData} className="flex items-center text-slate-600 hover:text-blue-600 text-sm font-medium px-3 py-1.5 rounded-md hover:bg-blue-50 transition border border-transparent hover:border-blue-200">
-                <Download size={16} className="mr-1.5" /> 匯出 JSON
-             </button>
-             {isCloudSynced && (
-                <div className="flex items-center text-emerald-600 text-sm font-medium bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
-                  <CheckCircle size={14} className="mr-1.5" /> 雲端已同步
-                </div>
-             )}
-          </div>
-        </header>
-
-        <main className="p-8">
-          {currentView === 'dashboard' && <Dashboard projects={projects} onProjectClick={(p) => navigate('project-detail', p)} />}
-          {currentView === 'new-req' && <RequirementForm onSubmit={handleCreateRequirement} onCancel={() => navigate('dashboard')} />}
-          {currentView === 'project-detail' && activeProject && (
-            <ProjectDetail project={activeProject} onBack={() => navigate('dashboard')} />
-          )}
-        </main>
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------
-// 子組件: 項目總表 Dashboard
-// ----------------------------------------------------------------------
-function Dashboard({ projects, onProjectClick }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse whitespace-nowrap">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="p-4 font-semibold text-slate-600 text-sm">項目編號</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">項目名稱</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">門店 (部門)</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">負責人</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">核心指標 1</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">當前階段</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {projects.map(proj => (
-              <tr key={proj.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-4 font-mono text-sm text-blue-600 font-medium">{proj.id || 'N/A'}</td>
-                <td className="p-4 font-medium text-slate-800 max-w-[250px] truncate" title={proj.name}>{proj.name}</td>
-                <td className="p-4 text-sm text-slate-600">{proj.department}</td>
-                <td className="p-4 text-sm">{proj.leader}</td>
-                <td className="p-4 text-sm text-slate-500">
-                  {proj.specs?.item1 ? `${proj.specs.item1}: ${proj.specs.val1}` : '-'}
-                </td>
-                <td className="p-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border 
-                    ${proj.status === '評估' ? 'bg-amber-100 text-amber-800 border-amber-200' : 
-                      proj.status === '結案' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 
-                      'bg-blue-100 text-blue-800 border-blue-200'}`}>
-                    {proj.status}
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <button onClick={() => onProjectClick(proj)} className="text-blue-600 hover:text-blue-800 flex items-center justify-end text-sm font-medium w-full">
-                    詳細 <ChevronRight size={16} className="ml-1" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {projects.length === 0 && (
-              <tr><td colSpan="7" className="p-8 text-center text-slate-400">目前尚無專案，請點擊「項目申請與立項」建立。</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------
-// 子組件: 需求申請表 (對應《項目總表》欄位)
-// ----------------------------------------------------------------------
-function RequirementForm({ onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({
-    id: '',
-    reqDescription: '',
-    name: '',
-    leader: '',
-    department: DEPARTMENTS[0],
-    appPosition: '',
-    customer: '',
-    specs: {
-      item1: 'μr', val1: '',
-      item2: 'Hsat', val2: '',
-      item3: 'Core loss', val3: '',
-      item4: '', val4: '',
-      others: ''
-    },
-    timeline: {
-      start: '',
-      es: '',
-      evt: '',
-      dvt: '',
-      pvt: ''
-    },
-    targetPN: '',
-    remark: ''
-  });
-
-  const handleSpecChange = (field, subfield, value) => {
-    setFormData(prev => ({
-      ...prev,
-      specs: { ...prev.specs, [field + subfield]: value }
-    }));
-  };
-
-  const handleTimelineChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      timeline: { ...prev.timeline, [field]: value }
-    }));
-  };
-
-  return (
-    <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="bg-blue-600 p-6 text-white">
-        <h3 className="text-2xl font-bold flex items-center">
-          <FileText className="mr-2" /> 研發項目申請總表
-        </h3>
-        <p className="text-blue-100 mt-1 opacity-90">請依據 NPI 流程填寫專案需求、指標與目標時程。送出後將自動同步至項目總表清單。</p>
-      </div>
-
-      <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }} className="p-8 space-y-8">
+        // ============================================================================
+        // 🔑 您專屬的資料庫設定區
+        // ============================================================================
+        const CLIENT_ID = '247871499678-qgd6on895klgu4c6lh9e077f2paahrec.apps.googleusercontent.com';
+        const SHEET_ID = '1t-oE-CkyhrFH30V2Hl3FPxQ49VwEteqF_w3VoEIvdV4'; // 您的 Google 試算表 ID
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
         
-        {/* 區塊 1：基本資訊 */}
-        <section>
-          <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
-            <FolderOpen className="text-blue-600 mr-2" size={20} />
-            <h4 className="text-lg font-bold text-slate-800">一、項目基本資訊</h4>
-          </div>
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-3">
-              <label className="block text-sm font-bold text-slate-700 mb-1">研發專案需求說明</label>
-              <textarea required className="w-full border border-slate-300 rounded-md p-3 outline-none focus:border-blue-500 min-h-[80px]" placeholder="例如：1. μ=30-45 2. Core Loss < 20000mW/cm3..."
-                value={formData.reqDescription} onChange={e => setFormData({...formData, reqDescription: e.target.value})} />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">項目編號 (留空則自動生成)</label>
-              <input type="text" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500 font-mono text-sm" placeholder="例如：CF26RD01"
-                value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-1">* 項目名稱</label>
-              <input required type="text" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" placeholder="例如：UIB制程μr(30~35)125等級材料開發"
-                value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-            </div>
+        const DEPARTMENTS = ['小顆材料課', '先進材料課', '通用材料課', 'AI產品課', '其他'];
+        // ============================================================================
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">* 門店 (所屬課別)</label>
-              <select className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500"
-                value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})}>
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">* 負責人</label>
-              <input required type="text" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" placeholder="例如：莊宇翔"
-                value={formData.leader} onChange={e => setFormData({...formData, leader: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">目標 PN (選填)</label>
-              <input type="text" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500"
-                value={formData.targetPN} onChange={e => setFormData({...formData, targetPN: e.target.value})} />
-            </div>
+        function App() {
+            const [token, setToken] = useState(null);
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [projects, setProjects] = useState([]);
+            const [activeProject, setActiveProject] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+            const [message, setMessage] = useState('');
+            const [gisLoaded, setGisLoaded] = useState(false);
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">應用位置</label>
-              <input type="text" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500"
-                value={formData.appPosition} onChange={e => setFormData({...formData, appPosition: e.target.value})} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-1">客戶</label>
-              <input type="text" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500"
-                value={formData.customer} onChange={e => setFormData({...formData, customer: e.target.value})} />
-            </div>
-          </div>
-        </section>
+            const showMsg = (msg) => {
+                setMessage(msg);
+                setTimeout(() => setMessage(''), 4000);
+            };
 
-        {/* 區塊 2：專案指標 */}
-        <section>
-          <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
-            <Target className="text-blue-600 mr-2" size={20} />
-            <h4 className="text-lg font-bold text-slate-800">二、專案指標 (Specs & Targets)</h4>
-          </div>
-          <div className="bg-slate-50 p-6 rounded-lg border border-slate-200 grid grid-cols-2 gap-x-8 gap-y-4">
-            
-            <div className="flex space-x-2">
-              <div className="w-1/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 1 Item</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" value={formData.specs.item1} onChange={e => handleSpecChange('item', '1', e.target.value)} />
-              </div>
-              <div className="w-2/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 1 Value</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" placeholder="(30~35)" value={formData.specs.val1} onChange={e => handleSpecChange('val', '1', e.target.value)} />
-              </div>
-            </div>
+            // 1. 確認 Google GIS 載入完成
+            useEffect(() => {
+                const checkGis = setInterval(() => {
+                    if (window.google) {
+                        setGisLoaded(true);
+                        clearInterval(checkGis);
+                    }
+                }, 500);
+                return () => clearInterval(checkGis);
+            }, []);
 
-            <div className="flex space-x-2">
-              <div className="w-1/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 2 Item</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" value={formData.specs.item2} onChange={e => handleSpecChange('item', '2', e.target.value)} />
-              </div>
-              <div className="w-2/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 2 Value</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" value={formData.specs.val2} onChange={e => handleSpecChange('val', '2', e.target.value)} />
-              </div>
-            </div>
+            // 2. 登入處理
+            const handleLogin = () => {
+                if (!window.google) {
+                    showMsg('Google 登入模組尚未載入完成，請稍後重試。');
+                    return;
+                }
+                const client = window.google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            setToken(tokenResponse.access_token);
+                            showMsg('成功連線至私有雲端！');
+                        }
+                    },
+                });
+                client.requestAccessToken({ prompt: 'consent' });
+            };
 
-            <div className="flex space-x-2">
-              <div className="w-1/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 3 Item</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" value={formData.specs.item3} onChange={e => handleSpecChange('item', '3', e.target.value)} />
-              </div>
-              <div className="w-2/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 3 Value</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" placeholder="<20000(3MHz)" value={formData.specs.val3} onChange={e => handleSpecChange('val', '3', e.target.value)} />
-              </div>
-            </div>
+            const handleLogout = () => {
+                setToken(null);
+                setProjects([]);
+                setCurrentView('dashboard');
+                showMsg('已成功登出系統。');
+            };
 
-            <div className="flex space-x-2">
-              <div className="w-1/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 4 Item</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" placeholder="自訂指標" value={formData.specs.item4} onChange={e => handleSpecChange('item', '4', e.target.value)} />
-              </div>
-              <div className="w-2/3">
-                <label className="block text-xs text-slate-500 mb-1">指標 4 Value</label>
-                <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" value={formData.specs.val4} onChange={e => handleSpecChange('val', '4', e.target.value)} />
-              </div>
-            </div>
+            // 3. 讀取 Google 試算表資料 (對應項目清單的 A~Y 欄)
+            const fetchProjects = useCallback(async () => {
+                if (!token) return;
+                setIsLoading(true);
+                try {
+                    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A:Y`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error.message);
+                    
+                    if (data.values && data.values.length > 1) {
+                        const formatted = data.values.slice(1).map((row, index) => ({
+                            rowIndex: index + 2,
+                            no: row[0] || '',
+                            reqDescription: row[1] || '',
+                            id: row[2] || '無編號',
+                            name: row[3] || '未命名',
+                            leader: row[4] || '待指派',
+                            department: row[5] || '',
+                            appPosition: row[6] || '',
+                            customer: row[7] || '',
+                            specs: {
+                                item1: row[8] || '', val1: row[9] || '',
+                                item2: row[10] || '', val2: row[11] || '',
+                                item3: row[12] || '', val3: row[13] || '',
+                                item4: row[14] || '', val4: row[15] || '',
+                                others: row[16] || ''
+                            },
+                            timeline: {
+                                start: row[17] || '',
+                                es: row[18] || '',
+                                evt: row[19] || '',
+                                dvt: row[20] || '',
+                                pvt: row[21] || ''
+                            },
+                            targetPN: row[22] || '',
+                            remark: row[23] || '',
+                            status: row[24] || '評估'
+                        }));
+                        setProjects(formatted.reverse());
+                    } else {
+                        setProjects([]);
+                    }
+                } catch (err) {
+                    showMsg('讀取失敗：請確認試算表 ID 是否正確。');
+                    console.error(err);
+                } finally {
+                    setIsLoading(false);
+                }
+            }, [token]);
 
-            <div className="col-span-2 mt-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">其他要求 (Other requirements)</label>
-              <input type="text" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500"
-                value={formData.specs.others} onChange={e => setFormData({...formData, specs: {...formData.specs, others: e.target.value}})} />
-            </div>
+            useEffect(() => { if (token) fetchProjects(); }, [token, fetchProjects]);
 
-          </div>
-        </section>
+            // 4. 寫入新專案至 Google 試算表
+            const handleCreateRequirement = async (formData) => {
+                setIsLoading(true);
+                try {
+                    const newId = formData.id || `RD-${Date.now().toString().slice(-6)}`;
+                    const rowData = [
+                        `NO-${Date.now().toString().slice(-4)}`, // A: NO
+                        formData.reqDescription,                 // B: 需求說明
+                        newId,                                   // C: 項目編號
+                        formData.name,                           // D: 項目名稱
+                        formData.leader,                         // E: 負責人
+                        formData.department,                     // F: 門店
+                        formData.appPosition,                    // G: 應用位置
+                        formData.customer,                       // H: 客戶
+                        formData.specs.item1, formData.specs.val1, // I, J: 指標 1
+                        formData.specs.item2, formData.specs.val2, // K, L: 指標 2
+                        formData.specs.item3, formData.specs.val3, // M, N: 指標 3
+                        formData.specs.item4, formData.specs.val4, // O, P: 指標 4
+                        formData.specs.others,                   // Q: 其他要求
+                        formData.timeline.start,                 // R: 啟動時間
+                        formData.timeline.es,                    // S: ES
+                        formData.timeline.evt,                   // T: EVT
+                        formData.timeline.dvt,                   // U: DVT
+                        formData.timeline.pvt,                   // V: PVT
+                        formData.targetPN,                       // W: 目標PN
+                        formData.remark,                         // X: 備註
+                        '評估'                                    // Y: 狀態
+                    ];
 
-        {/* 區塊 3：計畫時程 */}
-        <section>
-          <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
-            <Calendar className="text-blue-600 mr-2" size={20} />
-            <h4 className="text-lg font-bold text-slate-800">三、專案計畫時間 (總計畫 180 天)</h4>
-          </div>
-          <div className="grid grid-cols-5 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">啟動時間</label>
-              <input type="date" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" value={formData.timeline.start} onChange={e => handleTimelineChange('start', e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">ES Pass</label>
-              <input type="date" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" value={formData.timeline.es} onChange={e => handleTimelineChange('es', e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">EVT Pass</label>
-              <input type="date" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" value={formData.timeline.evt} onChange={e => handleTimelineChange('evt', e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">DVT Pass</label>
-              <input type="date" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" value={formData.timeline.dvt} onChange={e => handleTimelineChange('dvt', e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">PVT Pass</label>
-              <input type="date" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" value={formData.timeline.pvt} onChange={e => handleTimelineChange('pvt', e.target.value)} />
-            </div>
-          </div>
-        </section>
+                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:append?valueInputOption=USER_ENTERED`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ values: [rowData] })
+                    });
+                    
+                    showMsg('成功建立新專案並寫入雲端！');
+                    setCurrentView('dashboard');
+                    fetchProjects();
+                } catch (err) { 
+                    showMsg('寫入失敗：' + err.message); 
+                } finally { 
+                    setIsLoading(false); 
+                }
+            };
 
-        {/* 區塊 4：備註 */}
-        <section>
-          <label className="block text-sm font-bold text-slate-700 mb-1">備註 (Remarks)</label>
-          <textarea className="w-full border border-slate-300 rounded-md p-3 outline-none focus:border-blue-500 min-h-[60px]"
-            value={formData.remark} onChange={e => setFormData({...formData, remark: e.target.value})} />
-        </section>
+            // 5. 上傳檔案至 Google Drive
+            const uploadToDrive = async (fileName, fileContent) => {
+                if (!token) return;
+                setIsLoading(true);
+                try {
+                    const metadata = { name: fileName, mimeType: 'text/plain' };
+                    const form = new FormData();
+                    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                    form.append('file', new Blob([fileContent], { type: 'text/plain' }));
 
-        <div className="flex justify-end space-x-4 pt-6 border-t border-slate-200">
-          <button type="button" onClick={onCancel} className="px-8 py-3 border border-slate-300 text-slate-600 font-bold rounded-lg hover:bg-slate-50 transition">取消</button>
-          <button type="submit" className="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-lg flex items-center">
-            <CheckCircle size={20} className="mr-2" />
-            建立並加入總表
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
+                    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: form
+                    });
+                    const data = await res.json();
+                    if(data.id) {
+                        showMsg(`成功將【${fileName}】上傳至您的 Google Drive！`);
+                    }
+                } catch (error) {
+                    console.error('上傳檔案失敗', error);
+                    showMsg('檔案上傳失敗。');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
 
-// ----------------------------------------------------------------------
-// 子組件: 專案詳情展示 (查看總表資料)
-// ----------------------------------------------------------------------
-function ProjectDetail({ project, onBack }) {
-  return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <button onClick={onBack} className="text-slate-500 hover:text-slate-800 flex items-center font-bold mb-4">
-        <ChevronRight className="rotate-180 mr-1" size={20} /> 返回清單
-      </button>
-      
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <div className="flex justify-between items-start mb-6 border-b border-slate-200 pb-6">
-          <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded font-mono text-sm border border-slate-200">{project.id || 'N/A'}</span>
-              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded font-bold text-sm">{project.status} 階段</span>
-            </div>
-            <h2 className="text-3xl font-bold text-slate-800">{project.name}</h2>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-slate-500 mb-1">負責人</div>
-            <div className="font-bold text-lg text-slate-700">{project.leader}</div>
-            <div className="text-sm text-blue-600">{project.department}</div>
-          </div>
-        </div>
+            const navigate = (view, project = null) => {
+                setActiveProject(project);
+                setCurrentView(view);
+            };
 
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div>
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">需求說明</h3>
-            <div className="bg-slate-50 p-4 rounded border border-slate-100 text-slate-700 whitespace-pre-wrap min-h-[100px]">
-              {project.reqDescription || '無說明'}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">目標與應用</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="border border-slate-100 p-3 rounded">
-                <div className="text-xs text-slate-500 mb-1">目標 PN</div>
-                <div className="font-bold text-slate-700">{project.targetPN || '-'}</div>
-              </div>
-              <div className="border border-slate-100 p-3 rounded">
-                <div className="text-xs text-slate-500 mb-1">客戶</div>
-                <div className="font-bold text-slate-700">{project.customer || '-'}</div>
-              </div>
-              <div className="border border-slate-100 p-3 rounded col-span-2">
-                <div className="text-xs text-slate-500 mb-1">應用位置</div>
-                <div className="font-bold text-slate-700">{project.appPosition || '-'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+            const handleExportData = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects, null, 2));
+                const node = document.createElement('a');
+                node.setAttribute("href", dataStr);
+                node.setAttribute("download", `SoftMagnetic_Projects_${new Date().toISOString().split('T')[0]}.json`);
+                document.body.appendChild(node); node.click(); node.remove();
+            };
 
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">核心專案指標</h3>
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          {[1, 2, 3, 4].map(num => {
-            const item = project.specs?.[`item${num}`];
-            const val = project.specs?.[`val${num}`];
-            if (!item && !val) return null;
+            // === 登入畫面 ===
+            if (!token) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+                        <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md text-center border border-slate-200">
+                            <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <i className="fa-solid fa-hard-drive text-3xl"></i>
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-800 mb-2">軟磁研發私有管理系統</h1>
+                            <p className="text-slate-500 mb-8 text-sm">此系統資料將完全保存在您個人的 Google 雲端<br/>請授權登入以連接您的私有資料庫</p>
+                            <button 
+                                onClick={handleLogin} 
+                                disabled={!gisLoaded}
+                                className={`w-full font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-3 shadow-md
+                                    ${gisLoaded ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                            >
+                                <i className="fa-solid fa-right-to-bracket"></i> 
+                                {gisLoaded ? '連接我的私有 Google 帳號' : '驗證模組載入中...'}
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // === 系統主畫面 ===
             return (
-              <div key={num} className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
-                <div className="text-blue-600 text-xs font-bold mb-1">{item || `指標 ${num}`}</div>
-                <div className="text-slate-800 font-mono font-bold text-lg">{val || '-'}</div>
-              </div>
+                <div className="min-h-screen flex bg-slate-50 font-sans text-slate-800">
+                    {/* 左側導航 */}
+                    <div className="w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl z-10 flex-shrink-0">
+                        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+                            <i className="fa-regular fa-folder-open text-emerald-400 text-xl"></i>
+                            <h1 className="text-xl font-bold tracking-wider">RD-PMS</h1>
+                        </div>
+                        <nav className="flex-1 py-4">
+                            <ul className="space-y-1">
+                                <li>
+                                    <button onClick={() => navigate('dashboard')} className={`w-full flex items-center px-6 py-3 space-x-3 transition-colors ${currentView === 'dashboard' ? 'bg-blue-600 border-l-4 border-blue-400' : 'hover:bg-slate-800 border-l-4 border-transparent'}`}>
+                                        <i className="fa-solid fa-house w-5 text-center"></i><span>項目總表</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button onClick={() => navigate('new-req')} className={`w-full flex items-center px-6 py-3 space-x-3 transition-colors ${currentView === 'new-req' ? 'bg-blue-600 border-l-4 border-blue-400' : 'hover:bg-slate-800 border-l-4 border-transparent'}`}>
+                                        <i className="fa-solid fa-circle-plus w-5 text-center"></i><span>需求申請</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </nav>
+                        <div className="p-6 border-t border-slate-800 text-sm">
+                            <button onClick={handleLogout} className="text-slate-400 hover:text-white transition flex items-center gap-2">
+                                <i className="fa-solid fa-right-from-bracket"></i> 登出系統
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 右側內容 */}
+                    <div className="flex-1 flex flex-col h-full relative overflow-hidden">
+                        <header className="h-16 bg-white shadow-sm border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                                {currentView === 'dashboard' && '研發項目總表清單'}
+                                {currentView === 'new-req' && '填寫研發項目申請表'}
+                                {currentView === 'project-detail' && '專案詳情與進度'}
+                                {isLoading && <i className="fa-solid fa-arrows-rotate fa-spin ml-3 text-slate-400 text-sm"></i>}
+                            </h2>
+                            <div className="flex items-center space-x-4">
+                                <button onClick={handleExportData} className="flex items-center text-slate-600 hover:text-blue-600 text-sm font-medium px-3 py-1.5 rounded-md hover:bg-blue-50 transition border border-transparent">
+                                    <i className="fa-solid fa-download mr-1.5"></i> 匯出 JSON
+                                </button>
+                                <div className="flex items-center text-emerald-600 text-sm font-medium bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                                    <i className="fa-solid fa-circle-check mr-1.5"></i> 已連線 Google 雲端
+                                </div>
+                                <button onClick={fetchProjects} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition" title="重新整理">
+                                    <i className="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+                        </header>
+
+                        <main className="flex-1 p-8 overflow-auto no-scrollbar">
+                            {/* --- Dashboard 視圖 --- */}
+                            {currentView === 'dashboard' && (
+                                projects.length === 0 && !isLoading ? (
+                                    <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                        <i className="fa-solid fa-hard-drive text-5xl text-slate-300 mb-4 block"></i>
+                                        <h3 className="text-xl font-bold text-slate-700">您的試算表目前是空的</h3>
+                                        <p className="text-slate-500 mt-2">請點擊左側「需求申請」建立第一筆專案資料，系統將自動寫入您的 Google 試算表。</p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse whitespace-nowrap">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm">項目編號</th>
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm">項目名稱</th>
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm">門店 (部門)</th>
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm">負責人</th>
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm">核心指標 1</th>
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm">當前階段</th>
+                                                        <th className="p-4 font-semibold text-slate-600 text-sm text-right">操作</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {projects.map((proj, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                            <td className="p-4 font-mono text-sm text-blue-600 font-medium">{proj.id}</td>
+                                                            <td className="p-4 font-medium text-slate-800 max-w-[250px] truncate" title={proj.name}>{proj.name}</td>
+                                                            <td className="p-4 text-sm text-slate-600">{proj.department}</td>
+                                                            <td className="p-4 text-sm">{proj.leader}</td>
+                                                            <td className="p-4 text-sm text-slate-500">
+                                                                {proj.specs?.item1 ? `${proj.specs.item1}: ${proj.specs.val1}` : '-'}
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border 
+                                                                    ${proj.status === '評估' ? 'bg-amber-100 text-amber-800 border-amber-200' : 
+                                                                    proj.status === '結案' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 
+                                                                    'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                                                                    {proj.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-right">
+                                                                <button onClick={() => navigate('project-detail', proj)} className="text-blue-600 hover:text-blue-800 flex items-center justify-end text-sm font-medium w-full">
+                                                                    詳細 <i className="fa-solid fa-chevron-right ml-1"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )
+                            )}
+
+                            {/* --- 新增需求表單視圖 --- */}
+                            {currentView === 'new-req' && (
+                                <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                    <div className="bg-blue-600 p-6 text-white">
+                                        <h3 className="text-2xl font-bold flex items-center">
+                                            <i className="fa-regular fa-file-lines mr-3"></i> 研發項目申請總表
+                                        </h3>
+                                        <p className="text-blue-100 mt-1 opacity-90 text-sm">請依據 NPI 流程填寫專案需求、指標與目標時程。送出後將自動同步至您的 Google 試算表。</p>
+                                    </div>
+
+                                    <form onSubmit={(e) => { 
+                                        e.preventDefault(); 
+                                        const fd = new FormData(e.target);
+                                        const reqData = {
+                                            id: fd.get('id'), reqDescription: fd.get('reqDescription'), name: fd.get('name'), leader: fd.get('leader'),
+                                            department: fd.get('department'), appPosition: fd.get('appPosition'), customer: fd.get('customer'), targetPN: fd.get('targetPN'), remark: fd.get('remark'),
+                                            specs: { item1: fd.get('item1'), val1: fd.get('val1'), item2: fd.get('item2'), val2: fd.get('val2'), item3: fd.get('item3'), val3: fd.get('val3'), item4: fd.get('item4'), val4: fd.get('val4'), others: fd.get('others') },
+                                            timeline: { start: fd.get('start'), es: fd.get('es'), evt: fd.get('evt'), dvt: fd.get('dvt'), pvt: fd.get('pvt') }
+                                        };
+                                        handleCreateRequirement(reqData); 
+                                    }} className="p-8 space-y-8">
+                                        
+                                        <section>
+                                            <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
+                                                <i className="fa-regular fa-folder-open text-blue-600 mr-2 text-lg"></i>
+                                                <h4 className="text-lg font-bold text-slate-800">一、項目基本資訊</h4>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-6">
+                                                <div className="col-span-3">
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1">* 研發專案需求說明</label>
+                                                    <textarea required name="reqDescription" className="w-full border border-slate-300 rounded-md p-3 outline-none focus:border-blue-500 min-h-[80px]" placeholder="例如：1. μ=30-45 2. Core Loss < 20000mW/cm3..."></textarea>
+                                                </div>
+                                                <div><label className="block text-sm font-bold text-slate-700 mb-1">項目編號 (留空自動生成)</label><input type="text" name="id" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500 font-mono text-sm" placeholder="例如：CF26RD01" /></div>
+                                                <div className="col-span-2"><label className="block text-sm font-bold text-slate-700 mb-1">* 項目名稱</label><input required type="text" name="name" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" placeholder="例如：UIB制程μr(30~35)125等級材料開發" /></div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1">* 門店 (所屬課別)</label>
+                                                    <select name="department" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500">
+                                                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div><label className="block text-sm font-bold text-slate-700 mb-1">* 負責人</label><input required type="text" name="leader" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" /></div>
+                                                <div><label className="block text-sm font-bold text-slate-700 mb-1">目標 PN (選填)</label><input type="text" name="targetPN" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" /></div>
+                                                <div><label className="block text-sm font-bold text-slate-700 mb-1">應用位置</label><input type="text" name="appPosition" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" /></div>
+                                                <div className="col-span-2"><label className="block text-sm font-bold text-slate-700 mb-1">客戶</label><input type="text" name="customer" className="w-full border border-slate-300 rounded-md p-2 outline-none focus:border-blue-500" /></div>
+                                            </div>
+                                        </section>
+
+                                        <section>
+                                            <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
+                                                <i className="fa-solid fa-bullseye text-blue-600 mr-2 text-lg"></i>
+                                                <h4 className="text-lg font-bold text-slate-800">二、專案指標 (Specs & Targets)</h4>
+                                            </div>
+                                            <div className="bg-slate-50 p-6 rounded-lg border border-slate-200 grid grid-cols-2 gap-x-8 gap-y-4">
+                                                <div className="flex space-x-2"><div className="w-1/3"><label className="block text-xs text-slate-500 mb-1">指標 1 Item</label><input name="item1" defaultValue="μr" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div><div className="w-2/3"><label className="block text-xs text-slate-500 mb-1">指標 1 Value</label><input name="val1" placeholder="(30~35)" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div></div>
+                                                <div className="flex space-x-2"><div className="w-1/3"><label className="block text-xs text-slate-500 mb-1">指標 2 Item</label><input name="item2" defaultValue="Hsat" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div><div className="w-2/3"><label className="block text-xs text-slate-500 mb-1">指標 2 Value</label><input name="val2" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div></div>
+                                                <div className="flex space-x-2"><div className="w-1/3"><label className="block text-xs text-slate-500 mb-1">指標 3 Item</label><input name="item3" defaultValue="Core loss" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div><div className="w-2/3"><label className="block text-xs text-slate-500 mb-1">指標 3 Value</label><input name="val3" placeholder="<20000(3MHz)" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div></div>
+                                                <div className="flex space-x-2"><div className="w-1/3"><label className="block text-xs text-slate-500 mb-1">指標 4 Item</label><input name="item4" placeholder="自訂指標" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div><div className="w-2/3"><label className="block text-xs text-slate-500 mb-1">指標 4 Value</label><input name="val4" className="w-full border border-slate-300 rounded p-2 text-sm outline-none" /></div></div>
+                                                <div className="col-span-2 mt-2"><label className="block text-xs font-bold text-slate-700 mb-1">其他要求 (Other requirements)</label><input name="others" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" /></div>
+                                            </div>
+                                        </section>
+
+                                        <section>
+                                            <div className="flex items-center mb-4 border-b border-slate-200 pb-2">
+                                                <i className="fa-regular fa-calendar-days text-blue-600 mr-2 text-lg"></i>
+                                                <h4 className="text-lg font-bold text-slate-800">三、專案計畫時間 (總計畫 180 天)</h4>
+                                            </div>
+                                            <div className="grid grid-cols-5 gap-4">
+                                                <div><label className="block text-xs font-bold text-slate-600 mb-1">啟動時間</label><input type="date" name="start" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" /></div>
+                                                <div><label className="block text-xs font-bold text-slate-600 mb-1">ES Pass</label><input type="date" name="es" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" /></div>
+                                                <div><label className="block text-xs font-bold text-slate-600 mb-1">EVT Pass</label><input type="date" name="evt" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" /></div>
+                                                <div><label className="block text-xs font-bold text-slate-600 mb-1">DVT Pass</label><input type="date" name="dvt" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" /></div>
+                                                <div><label className="block text-xs font-bold text-slate-600 mb-1">PVT Pass</label><input type="date" name="pvt" className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-blue-500" /></div>
+                                            </div>
+                                        </section>
+
+                                        <section>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">備註 (Remarks)</label>
+                                            <textarea name="remark" className="w-full border border-slate-300 rounded-md p-3 outline-none focus:border-blue-500 min-h-[60px]"></textarea>
+                                        </section>
+
+                                        <div className="flex justify-end space-x-4 pt-6 border-t border-slate-200">
+                                            <button type="button" onClick={() => setCurrentView('dashboard')} className="px-8 py-3 border border-slate-300 text-slate-600 font-bold rounded-lg hover:bg-slate-50 transition">取消</button>
+                                            <button type="submit" disabled={isLoading} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-lg flex items-center disabled:opacity-50">
+                                                {isLoading ? <i className="fa-solid fa-arrows-rotate fa-spin mr-2"></i> : <i className="fa-solid fa-circle-check mr-2"></i>}
+                                                建立並寫入我的雲端
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
+
+                            {/* --- 專案詳細視圖 --- */}
+                            {currentView === 'project-detail' && activeProject && (
+                                <div className="max-w-5xl mx-auto space-y-6">
+                                    <button onClick={() => setCurrentView('dashboard')} className="text-slate-500 hover:text-slate-800 flex items-center font-bold mb-4">
+                                        <i className="fa-solid fa-chevron-left mr-2"></i> 返回清單
+                                    </button>
+                                    
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                                        <div className="flex justify-between items-start mb-6 border-b border-slate-200 pb-6">
+                                            <div>
+                                                <div className="flex items-center space-x-3 mb-2">
+                                                    <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded font-mono text-sm border border-slate-200">{activeProject.id || 'N/A'}</span>
+                                                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded font-bold text-sm">{activeProject.status} 階段</span>
+                                                </div>
+                                                <h2 className="text-3xl font-bold text-slate-800">{activeProject.name}</h2>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-sm text-slate-500 mb-1">負責人</div>
+                                                <div className="font-bold text-lg text-slate-700">{activeProject.leader}</div>
+                                                <div className="text-sm text-blue-600">{activeProject.department}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-8 mb-8">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">需求說明</h3>
+                                                <div className="bg-slate-50 p-4 rounded border border-slate-100 text-slate-700 whitespace-pre-wrap min-h-[100px]">
+                                                    {activeProject.reqDescription || '無說明'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">目標與應用</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="border border-slate-100 p-3 rounded">
+                                                        <div className="text-xs text-slate-500 mb-1">目標 PN</div>
+                                                        <div className="font-bold text-slate-700">{activeProject.targetPN || '-'}</div>
+                                                    </div>
+                                                    <div className="border border-slate-100 p-3 rounded">
+                                                        <div className="text-xs text-slate-500 mb-1">客戶</div>
+                                                        <div className="font-bold text-slate-700">{activeProject.customer || '-'}</div>
+                                                    </div>
+                                                    <div className="border border-slate-100 p-3 rounded col-span-2">
+                                                        <div className="text-xs text-slate-500 mb-1">應用位置</div>
+                                                        <div className="font-bold text-slate-700">{activeProject.appPosition || '-'}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">核心專案指標</h3>
+                                        <div className="grid grid-cols-4 gap-4 mb-8">
+                                            {[1, 2, 3, 4].map(num => {
+                                                const item = activeProject.specs?.[`item${num}`];
+                                                const val = activeProject.specs?.[`val${num}`];
+                                                if (!item && !val) return null;
+                                                return (
+                                                    <div key={num} className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                                                        <div className="text-blue-600 text-xs font-bold mb-1">{item || `指標 ${num}`}</div>
+                                                        <div className="text-slate-800 font-mono font-bold text-lg">{val || '-'}</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">時程節點</h3>
+                                        <div className="flex justify-between items-center bg-slate-50 p-6 rounded-lg border border-slate-200 mb-8">
+                                            <div className="text-center">
+                                                <div className="text-xs font-bold text-slate-500 mb-1">啟動</div>
+                                                <div className="font-mono text-sm">{activeProject.timeline?.start || '-'}</div>
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                            <div className="text-center">
+                                                <div className="text-xs font-bold text-slate-500 mb-1">ES Pass</div>
+                                                <div className="font-mono text-sm text-blue-600 font-bold">{activeProject.timeline?.es || '-'}</div>
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                            <div className="text-center">
+                                                <div className="text-xs font-bold text-slate-500 mb-1">EVT Pass</div>
+                                                <div className="font-mono text-sm">{activeProject.timeline?.evt || '-'}</div>
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                            <div className="text-center">
+                                                <div className="text-xs font-bold text-slate-500 mb-1">DVT Pass</div>
+                                                <div className="font-mono text-sm">{activeProject.timeline?.dvt || '-'}</div>
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                            <div className="text-center">
+                                                <div className="text-xs font-bold text-slate-500 mb-1">PVT Pass</div>
+                                                <div className="font-mono text-sm">{activeProject.timeline?.pvt || '-'}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="border-t border-slate-200 pt-6">
+                                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                                                <i className="fa-brands fa-google-drive text-emerald-600 mr-2"></i> 測試上傳至 Google Drive
+                                            </h3>
+                                            <p className="text-slate-500 text-sm mb-6">點擊下方按鈕，系統會自動生成一份文字報告，並上傳到您的 Google 雲端硬碟中。</p>
+                                            
+                                            <button 
+                                                disabled={isLoading}
+                                                onClick={() => uploadToDrive(`${activeProject.id}_結案報告.txt`, `這是系統自動生成的報告內容。\n專案名稱：${activeProject.name}\n產生時間：${new Date().toLocaleString()}`)}
+                                                className="flex items-center justify-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md font-medium transition-colors disabled:opacity-50"
+                                            >
+                                                {isLoading ? <i className="fa-solid fa-arrows-rotate fa-spin mr-2"></i> : <i className="fa-solid fa-upload mr-2"></i>}
+                                                上傳報告至我的雲端硬碟
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+
+                        {message && (
+                            <div className="absolute bottom-8 right-8 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50">
+                                <i className="fa-solid fa-circle-info text-blue-400"></i> {message}
+                            </div>
+                        )}
+                    </div>
+                </div>
             );
-          })}
-        </div>
+        }
 
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">時程節點</h3>
-        <div className="flex justify-between items-center bg-slate-50 p-6 rounded-lg border border-slate-200">
-          <div className="text-center">
-            <div className="text-xs font-bold text-slate-500 mb-1">啟動</div>
-            <div className="font-mono text-sm">{project.timeline?.start || '-'}</div>
-          </div>
-          <ChevronRight className="text-slate-300" />
-          <div className="text-center">
-            <div className="text-xs font-bold text-slate-500 mb-1">ES Pass</div>
-            <div className="font-mono text-sm text-blue-600 font-bold">{project.timeline?.es || '-'}</div>
-          </div>
-          <ChevronRight className="text-slate-300" />
-          <div className="text-center">
-            <div className="text-xs font-bold text-slate-500 mb-1">EVT Pass</div>
-            <div className="font-mono text-sm">{project.timeline?.evt || '-'}</div>
-          </div>
-          <ChevronRight className="text-slate-300" />
-          <div className="text-center">
-            <div className="text-xs font-bold text-slate-500 mb-1">DVT Pass</div>
-            <div className="font-mono text-sm">{project.timeline?.dvt || '-'}</div>
-          </div>
-          <ChevronRight className="text-slate-300" />
-          <div className="text-center">
-            <div className="text-xs font-bold text-slate-500 mb-1">PVT Pass</div>
-            <div className="font-mono text-sm">{project.timeline?.pvt || '-'}</div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
