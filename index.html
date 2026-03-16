@@ -80,7 +80,6 @@
                     },
                 });
                 
-                // 🌟 關鍵修改：強制要求同時跳出「選擇帳號」與「同意權限」視窗
                 client.requestAccessToken({ prompt: 'consent select_account' });
             };
 
@@ -236,6 +235,15 @@
                 document.body.appendChild(node); node.click(); node.remove();
             };
 
+            // 開啟雲端資源連結
+            const openGoogleSheet = () => {
+                window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`, '_blank');
+            };
+            
+            const openGoogleDrive = () => {
+                window.open(`https://drive.google.com/drive/my-drive`, '_blank');
+            };
+
             // === 登入畫面 ===
             if (!token) {
                 return (
@@ -266,11 +274,11 @@
                     {/* 左側導航 */}
                     <div className="w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl z-10 flex-shrink-0">
                         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-                            <i className="fa-regular fa-folder-open text-emerald-400 text-xl"></i>
+                            <i className="fa-solid fa-atom text-emerald-400 text-xl"></i>
                             <h1 className="text-xl font-bold tracking-wider">RD-PMS</h1>
                         </div>
                         <nav className="flex-1 py-4">
-                            <ul className="space-y-1">
+                            <ul className="space-y-1 mb-8">
                                 <li>
                                     <button onClick={() => navigate('dashboard')} className={`w-full flex items-center px-6 py-3 space-x-3 transition-colors ${currentView === 'dashboard' ? 'bg-blue-600 border-l-4 border-blue-400' : 'hover:bg-slate-800 border-l-4 border-transparent'}`}>
                                         <i className="fa-solid fa-house w-5 text-center"></i><span>項目總表</span>
@@ -279,6 +287,21 @@
                                 <li>
                                     <button onClick={() => navigate('new-req')} className={`w-full flex items-center px-6 py-3 space-x-3 transition-colors ${currentView === 'new-req' ? 'bg-blue-600 border-l-4 border-blue-400' : 'hover:bg-slate-800 border-l-4 border-transparent'}`}>
                                         <i className="fa-solid fa-circle-plus w-5 text-center"></i><span>需求申請</span>
+                                    </button>
+                                </li>
+                            </ul>
+
+                            {/* 🚀 新增：一鍵直達原生雲端操作區 */}
+                            <div className="px-6 mb-2 text-xs font-bold text-slate-500 tracking-wider uppercase">雲端原生操作 (Direct Access)</div>
+                            <ul className="space-y-1">
+                                <li>
+                                    <button onClick={openGoogleSheet} className="w-full flex items-center px-6 py-3 space-x-3 transition-colors hover:bg-slate-800 border-l-4 border-transparent text-emerald-400">
+                                        <i className="fa-solid fa-file-excel w-5 text-center"></i><span>直接編輯試算表</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button onClick={openGoogleDrive} className="w-full flex items-center px-6 py-3 space-x-3 transition-colors hover:bg-slate-800 border-l-4 border-transparent text-emerald-400">
+                                        <i className="fa-brands fa-google-drive w-5 text-center"></i><span>打開雲端硬碟</span>
                                     </button>
                                 </li>
                             </ul>
@@ -306,7 +329,7 @@
                                 <div className="flex items-center text-emerald-600 text-sm font-medium bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
                                     <i className="fa-solid fa-circle-check mr-1.5"></i> 已連線 Google 雲端
                                 </div>
-                                <button onClick={fetchProjects} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition" title="重新整理">
+                                <button onClick={fetchProjects} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition" title="重新整理同步雲端資料">
                                     <i className="fa-solid fa-arrows-rotate"></i>
                                 </button>
                             </div>
@@ -319,7 +342,7 @@
                                     <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
                                         <i className="fa-solid fa-hard-drive text-5xl text-slate-300 mb-4 block"></i>
                                         <h3 className="text-xl font-bold text-slate-700">您的試算表目前是空的</h3>
-                                        <p className="text-slate-500 mt-2">請點擊左側「需求申請」建立第一筆專案資料，系統將自動寫入您的 Google 試算表。</p>
+                                        <p className="text-slate-500 mt-2">您可以點擊左側「需求申請」建立，或點擊「直接編輯試算表」在 Excel 裡貼上大量資料。</p>
                                     </div>
                                 ) : (
                                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
